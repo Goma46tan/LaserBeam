@@ -417,7 +417,7 @@
           A.play('laser');
           if (!demo) vib(8);
           if (e.result === 'empty') {
-            R.ring(e.x, e.y, 8, 105, 0.38, hue, 3);
+            R.ring(e.x, e.y, 8, 115, 0.38, hue, 3);
             R.ring(e.x, e.y, 4, 70, 0.3, hue + 40, 2);
             R.glows(e.x, e.y, hue, 6, 180, 14, 0.4);
             A.play('blast');
@@ -428,6 +428,14 @@
           R.spark(e.x, e.y, R.blockHue(e.body.lb), 12, 420, 0.45);
           A.play('hit');
           break;
+        case 'impact': {
+          const ih = R.blockHue(e.body.lb);
+          const k = Math.min(1, (e.v - 3) / 6);
+          R.spark(e.x, e.y, ih, 3 + Math.round(k * 6), 160 + k * 260, 0.35);
+          if (k > 0.5) R.addShake(1.5 + k * 2.5);
+          A.play('impact', { v: k });
+          break;
+        }
         case 'crack':
           R.spark(e.x, e.y, 0, 10, 300, 0.4);
           R.ring(e.x, e.y, 5, 60, 0.3, R.blockHue(e.body.lb), 2);

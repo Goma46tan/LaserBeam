@@ -226,7 +226,7 @@
       const out = [];
       const maxR = Math.floor(s.maxH / U);
       const w0 = Math.min(s.w, U * r.int(3, 6));
-      const layers = clamp(r.int(2, 3 + Math.round(d * 2)), 1, Math.floor(maxR / 1.5) - 0);
+      const layers = clamp(r.int(3, 4 + Math.round(d * 3)), 1, Math.floor(maxR / 1.5));
       let top = s.top;
       for (let i = 0; i < layers; i++) {
         const wi = Math.max(U * 2, w0 - i * U * 0.5);
@@ -275,10 +275,120 @@
       for (let i = 0; i < h; i++) top = place(out, s.x, top, U * 0.9, U, 'cyl');
       return out;
     },
+
+    /* ---- top-heavy, collapse-prone structures: knock out one support and it all comes down ---- */
+    // a heavy block mass standing on thin legs
+    stilts(s, r, d) {
+      const out = [];
+      const maxR = Math.floor(s.maxH / U);
+      if (maxR < 4) return T.tallStack(s, r, d);
+      const cols = clamp(r.int(3, 4 + Math.round(d * 2)), 3, Math.max(3, Math.floor(s.w / U)));
+      const topW = cols * U;
+      const thin = r.chance(0.55);
+      const lw = thin ? U * 0.34 : U * 0.8, lh = thin ? U * 2 : U;
+      const legs = topW >= U * 4 && r.chance(0.5) ? 3 : 2;
+      const levels = maxR >= 7 && r.chance(0.45) ? 2 : 1;
+      let top = s.top;
+      for (let lv = 0; lv < levels; lv++) {
+        const w = topW - lv * U;
+        let t = top;
+        for (let i = 0; i < legs; i++) {
+          const lx = s.x + (i / (legs - 1) - 0.5) * (w - U * 0.9);
+          t = top;
+          const stack = thin ? 1 : 2;
+          for (let q = 0; q < stack; q++) t = place(out, lx, t, lw, lh, thin ? 'slab' : 'cyl');
+        }
+        top = place(out, s.x, t, w, U / 2, 'plank');
+      }
+      const wTop = topW - (levels - 1) * U;
+      const sub = { x: s.x, top, w: wTop, maxH: s.maxH - (s.top - top) };
+      if (sub.maxH >= U) {
+        const k = r.int(0, 2);
+        const more = k === 0 ? T.wall(sub, r, 0.3 + d * 0.5) : k === 1 ? T.castle(sub, r, d) : T.tallStack(sub, r, d * 0.5);
+        out.push(...more);
+      }
+      return out;
+    },
+    // a long beam balanced on a single column with loads on both ends
+    tTower(s, r, d) {
+      const out = [];
+      const maxR = Math.floor(s.maxH / U);
+      if (maxR < 4) return T.stilts(s, r, d);
+      const m = clamp(r.int(2, 3 + Math.round(d)), 1, maxR - 2);
+      let top = s.top;
+      for (let i = 0; i < m; i++) top = place(out, s.x, top, U * 0.9, U, 'cyl');
+      const bw = r.int(3, 5) * U;
+      top = place(out, s.x, top, bw, U / 2, 'plank');
+      const endH = clamp(r.int(1, 2 + Math.round(d)), 1, Math.floor((s.maxH - (s.top - top)) / U));
+      for (const sgn of [-1, 1]) {
+        let t = top;
+        for (let i = 0; i < endH; i++) t = place(out, s.x + sgn * (bw / 2 - U / 2), t, U, U, i % 2 ? 'cyl' : 'box');
+      }
+      if (bw >= U * 5 && r.chance(0.6)) {
+        let t = top;
+        for (let i = 0; i < Math.min(endH + 1, Math.floor((s.maxH - (s.top - top)) / U)); i++) t = place(out, s.x, t, U, U, 'box');
+      }
+      return out;
+    },
+    // tall slender columns tied together with planks
+    tallStack(s, r, d) {
+      const out = [];
+      const maxR = Math.floor(s.maxH / U);
+      const cols = clamp(r.int(1, 3), 1, Math.max(1, Math.floor(s.w / U)));
+      const h = clamp(r.int(5, 7 + Math.round(d * 3)), 2, maxR);
+      const tieEvery = r.int(2, 3);
+      const x0 = s.x - (cols - 1) * U / 2;
+      const shape = r.chance(0.4) ? 'cyl' : 'box';
+      let bottom = s.top;
+      for (let row = 0; row < h; row++) {
+        if (row > 0 && row % tieEvery === 0 && cols > 1 && s.top - bottom + U * 1.5 <= s.maxH) {
+          bottom = place(out, s.x, bottom, cols * U, U / 2, 'plank');
+        }
+        if (s.top - bottom + U > s.maxH) break;
+        for (let j = 0; j < cols; j++) place(out, x0 + j * U, bottom, U * 0.95, U, shape);
+        bottom -= U;
+      }
+      return out;
+    },
+    // house of cards: slab pairs roofed with planks, stacked in tiers
+    cards(s, r, d) {
+      const out = [];
+      const maxR = Math.floor(s.maxH / U);
+      if (maxR < 3) return T.tallStack(s, r, d);
+      const cw = U * 0.3, chh = U * 1.6, span = U * 1.25;
+      let n = clamp(r.int(2, 3 + Math.round(d)), 1, Math.floor((s.w - cw) / span));
+      let bottom = s.top;
+      while (n >= 1 && s.top - bottom + chh + U / 2 <= s.maxH) {
+        const x0 = s.x - (n * span) / 2;
+        for (let i = 0; i <= n; i++) place(out, x0 + i * span, bottom, cw, chh, 'slab');
+        bottom = place(out, s.x, bottom - chh, n * span + cw, U / 2, 'plank');
+        n--;
+      }
+      if (s.top - bottom + U <= s.maxH) place(out, s.x, bottom, U, U, 'box');
+      return out;
+    },
+    // dominoes carrying a long bridge with cargo
+    dominoBridge(s, r, d) {
+      const out = [];
+      const maxR = Math.floor(s.maxH / U);
+      if (maxR < 4) return T.domino(s, r, d);
+      const sw = U * 0.32, sh = U * 2.2;
+      const count = clamp(Math.floor(s.w / (U * 1.1)), 2, 6);
+      const sp = Math.min((s.w - sw) / (count - 1), U * 1.2);
+      const x0 = s.x - sp * (count - 1) / 2;
+      for (let i = 0; i < count; i++) place(out, x0 + i * sp, s.top, sw, sh, 'slab');
+      const bw = sp * (count - 1) + sw + U * 0.6;
+      const top = place(out, s.x, s.top - sh, bw, U / 2, 'plank');
+      const sub = { x: s.x, top, w: bw, maxH: s.maxH - (s.top - top) };
+      out.push(...(r.chance(0.5) ? T.wall(sub, r, d * 0.5) : T.skyline(sub, r, d * 0.5)));
+      return out;
+    },
   };
+  // pyramids and solid walls are stable (not fun to topple) so they're rare now
   const TEMPLATE_W = [
-    ['pyramid', 3], ['wall', 3], ['tree', 2], ['towers', 2], ['castle', 2], ['stairs', 2],
-    ['domino', 1.2], ['jenga', 1.6], ['orbPile', 0], ['skyline', 2], ['spire', 1],
+    ['stilts', 3.5], ['tTower', 2.6], ['tallStack', 2.4], ['cards', 2], ['dominoBridge', 1.8],
+    ['jenga', 2.4], ['tree', 2.4], ['towers', 2.4], ['domino', 1.2], ['spire', 1.4],
+    ['skyline', 0.8], ['castle', 0.5], ['wall', 0.5], ['pyramid', 0.3], ['stairs', 0.3], ['orbPile', 0],
   ];
 
   function structureBounds(blocks) {
@@ -312,6 +422,7 @@
   Builder.prototype.build = function (site, tname, platform) {
     const blocks = T[tname](site, this.r, this.d);
     for (const b of blocks) b.site = this.sites.length;
+    if (blocks.length && platform) this.fitPlatform(platform, blocks, site.top);
     if (blocks.length) {
       const bb = structureBounds(blocks);
       this.occ.push(bb);
@@ -319,6 +430,23 @@
       this.blocks.push(...blocks);
     }
     return blocks;
+  };
+  // shrink a platform down to the footprint of what stands on it, so toppled blocks fall off
+  Builder.prototype.fitPlatform = function (p, blocks, top) {
+    let x0 = Infinity, x1 = -Infinity;
+    for (const b of blocks) {
+      if (Math.abs(b.y + b.h / 2 - top) > 1) continue;
+      x0 = Math.min(x0, b.x - b.w / 2); x1 = Math.max(x1, b.x + b.w / 2);
+    }
+    if (!isFinite(x0)) return;
+    const margin = this.r.range(3, 10);
+    const w = Math.max(U * 0.8, x1 - x0 + margin * 2);
+    if (w >= p.w) return;
+    const oldX0 = p.x - p.w / 2, oldX1 = p.x + p.w / 2;
+    p.x = (x0 + x1) / 2; p.w = w;
+    for (const o of this.occ) {
+      if (o.x0 === oldX0 && o.x1 === oldX1 && o.y0 === top) { o.x0 = p.x - w / 2; o.x1 = p.x + w / 2; }
+    }
   };
   Builder.prototype.pickTemplate = function (allowOrb, exclude) {
     const list = TEMPLATE_W.map(([k, w]) => [k, k === 'orbPile' ? (allowOrb ? 2 : 0) : (exclude && exclude.includes(k) ? 0 : w)]);
@@ -399,7 +527,7 @@
       const x = 300 + (wu <= 5 ? r.range(-40, 40) : 0);
       const top = r.range(650, 720);
       const p = B.platform(x, top, w);
-      let tn = n === 1 ? 'pyramid' : n === 2 ? 'wall' : n === 3 ? 'tree' : tpl();
+      let tn = n === 1 ? 'stilts' : n === 2 ? 'tTower' : n === 3 ? 'tree' : tpl();
       if (feats.has('orb') && intro === 'orb') tn = 'orbPile';
       B.build({ x, top, w: w - 8, maxH: maxHFor(top) }, tn, p);
     } else if (layout === 'double') {
@@ -467,7 +595,7 @@
         const x = 20 + colW * (i + 0.5) + r.range(-8, 8);
         const top = r.range(430 + (airCount ? 120 : 0), 730);
         const p = B.platform(x, top, w);
-        B.build({ x, top, w: w - 6, maxH: Math.min(maxHFor(top), U * r.int(2, 4 + Math.round(d * 2))) }, r.pick(['pyramid', 'wall', 'spire', 'skyline', 'stairs']), p);
+        B.build({ x, top, w: w - 6, maxH: Math.min(maxHFor(top), U * r.int(2, 4 + Math.round(d * 2))) }, r.pick(['tallStack', 'spire', 'tTower', 'stilts', 'cards', 'jenga']), p);
       }
     }
 
@@ -716,7 +844,7 @@
   Sim.prototype._makeBlock = function (s) {
     const dmul = { normal: 1, star: 1, bomb: 1.1, armor: 2.4, steel: 3.5, crystal: 0.8, phase: 1, gen: 1, core: 3 }[s.type] || 1;
     const opt = {
-      friction: 0.8, frictionStatic: 1.2, restitution: 0.04, frictionAir: s.float ? 0.03 : 0.006,
+      friction: 0.55, frictionStatic: 0.9, restitution: 0.06, frictionAir: s.float ? 0.03 : 0.006,
       density: 0.0012 * dmul, angle: s.angle || 0, slop: 0.03,
     };
     let b;
@@ -747,7 +875,7 @@
   Sim.prototype._build = function () {
     const st = this.stage;
     for (const p of st.platforms) {
-      const b = Bodies.rectangle(p.x, p.y + p.h / 2, p.w, p.h, { isStatic: true, friction: 1, frictionStatic: 1.3, restitution: 0 });
+      const b = Bodies.rectangle(p.x, p.y + p.h / 2, p.w, p.h, { isStatic: true, friction: 0.7, frictionStatic: 1, restitution: 0 });
       this._meta(b, { kind: 'platform', type: 'platform', w: p.w, h: p.h, target: false, spec: p });
       if (p.move || p.rock) {
         b.lb.kin = { mode: p.move ? 'move' : 'rock', x0: p.x, y0: p.y + p.h / 2, spec: p.move || p.rock };
@@ -847,8 +975,19 @@
 
   Sim.prototype._onCollide = function (e) {
     if (this.stepN < 50) return;
+    let impacts = 0;
     for (const pr of e.pairs) {
       const a = pr.bodyA, b = pr.bodyB;
+      // hard knocks while a structure collapses -> sparks + thud (for feedback only)
+      if (impacts < 4 && a.lb && b.lb) {
+        const rv = Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y);
+        if (rv > 3.2) {
+          const sp = pr.collision && pr.collision.supports && pr.collision.supports[0];
+          const src = a.isStatic ? b : a;
+          this.events.push({ t: 'impact', x: sp ? sp.x : src.position.x, y: sp ? sp.y : src.position.y, v: rv, body: src });
+          impacts++;
+        }
+      }
       for (const [c, o] of [[a, b], [b, a]]) {
         if (!c.lb || c.lb.type !== 'crystal' || !c.lb.alive) continue;
         const rv = Math.hypot(c.velocity.x - o.velocity.x, c.velocity.y - o.velocity.y);
@@ -992,7 +1131,7 @@
     } else if (L.type === 'gen') {
       this.blast(pos, 90, 5, b, 'gen');
     } else {
-      this.blast(pos, 88, 6.2, b, 'destroy');
+      this.blast(pos, 95, 7.4, b, 'destroy');
     }
   };
 
@@ -1079,7 +1218,7 @@
       this.events.push({ t: 'hit', x, y, body: hit });
       this.damage(hit, 1, 'laser');
       this._flush();
-      if (L.alive) this.blast(p, 90, 6.5, null, 'hit');
+      if (L.alive) this.blast(p, 95, 7.5, null, 'hit');
       return true;
     }
     const tc = this.pickTether(p);
@@ -1091,7 +1230,7 @@
       return true;
     }
     this.events.push({ t: 'laser', x, y, result: 'empty' });
-    this.blast(p, 105, 8.5, null, 'empty');
+    this.blast(p, 115, 10, null, 'empty');
     return true;
   };
 

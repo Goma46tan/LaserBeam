@@ -1016,7 +1016,7 @@
     ctx.stroke();
     ctx.globalAlpha = 0.25;
     ctx.fillStyle = col(hue, 100, 60);
-    ctx.beginPath(); ctx.arc(a.x, a.y, 105, 0, TAU); ctx.fill();   // blast radius preview
+    ctx.beginPath(); ctx.arc(a.x, a.y, 115, 0, TAU); ctx.fill();   // blast radius preview
     ctx.globalAlpha = 1;
     ctx.drawImage(glowSprite(hue, true), a.x - 6, a.y - 6, 12, 12);
     ctx.globalCompositeOperation = 'source-over';

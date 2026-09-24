@@ -170,6 +170,14 @@
         o.frequency.exponentialRampToValueAtTime(900, t + 0.18);
         break;
       }
+      case 'impact': {
+        if (throttle('impact', 55)) return;
+        const k = p.v || 0.5;
+        const o = osc('sine', 110 + Math.random() * 40, t, 0.12, bus, 0.18 + k * 0.25);
+        o.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+        noise(t, 0.07, bus, 0.1 + k * 0.15, 'bandpass', 900 + Math.random() * 900, 300, 1.5);
+        break;
+      }
       case 'crack': {
         if (throttle('crack', 40)) return;
         noise(t, 0.1, bus, 0.35, 'bandpass', 1500, 800, 3);
