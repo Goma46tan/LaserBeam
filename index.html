@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#05020f">
-<meta name="description" content="LaserBeam - サイバー空間のブロックをレーザーで吹き飛ばす爽快物理パズル。全1000ステージ。">
+<meta name="description" content="LaserBeam - cyber physics puzzle: blast neon blocks off their pedestals with a laser. 1000 stages.">
 <title>LaserBeam</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -24,7 +24,7 @@
   <!-- HUD -->
   <div id="hud" class="hidden">
     <div class="hud-top">
-      <button id="btnPause" class="icon-btn" aria-label="ポーズ"><span class="pause-ico"></span></button>
+      <button id="btnPause" class="icon-btn" aria-label="Pause" data-i18n-aria="aria.pause"><span class="pause-ico"></span></button>
       <div class="hud-stage">
         <div id="hudStage">STAGE 1</div>
         <div id="hudSector">NEON CITY</div>
@@ -60,16 +60,17 @@
       <button id="btnShop" class="neon-btn gold">LASER SHOP</button>
       <button id="btnSettings" class="neon-btn ghost">SETTINGS</button>
     </div>
-    <div class="title-foot">TAP TO FIRE ─ レーザーでブロックを台座から吹き飛ばせ</div>
+    <div class="title-foot" data-i18n="title.foot">TAP TO FIRE</div>
+    <button id="btnLang" class="lang-btn" aria-label="Language" data-i18n-aria="aria.lang">🌐</button>
   </section>
 
   <!-- STAGE SELECT -->
   <section id="scrSelect" class="screen hidden">
     <header class="sel-head">
-      <button id="btnSelBack" class="icon-btn" aria-label="戻る">&#x276E;</button>
+      <button id="btnSelBack" class="icon-btn" aria-label="Back" data-i18n-aria="aria.back">&#x276E;</button>
       <div class="sel-title">STAGE SELECT</div>
       <div id="selTotal" class="sel-total">★ 0 / 3000</div>
-      <button id="btnSelShop" class="icon-btn" aria-label="ショップ">🛒</button>
+      <button id="btnSelShop" class="icon-btn" aria-label="Shop" data-i18n-aria="aria.shop">🛒</button>
     </header>
     <div id="sectorStrip" class="sector-strip"></div>
     <div id="sectorInfo" class="sector-info"></div>
@@ -79,7 +80,7 @@
   <!-- SHOP -->
   <section id="scrShop" class="screen hidden">
     <header class="sel-head">
-      <button id="btnShopBack" class="icon-btn" aria-label="戻る">&#x276E;</button>
+      <button id="btnShopBack" class="icon-btn" aria-label="Back" data-i18n-aria="aria.back">&#x276E;</button>
       <div class="sel-title">LASER SHOP</div>
       <div id="shopPt" class="pt-badge">0 PT</div>
     </header>

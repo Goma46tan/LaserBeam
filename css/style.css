@@ -9,7 +9,7 @@
   --gold: #ffd84a;
   --danger: #ff3b5c;
   --font: 'Orbitron', 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif;
-  --jp: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+  --jp: system-ui, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', 'PingFang SC', 'PingFang TC', 'Microsoft YaHei', 'Microsoft JhengHei', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK JP', sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bot: env(safe-area-inset-bottom, 0px);
 }
@@ -330,3 +330,15 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .toast.show { animation: toastIn 2.2s ease forwards; }
 @keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, 10px); } 10%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
 .modal-card .row > .neon-btn { padding-left: 6px; padding-right: 6px; letter-spacing: 1px; }
+
+/* language */
+.lang-btn {
+  position: absolute; top: calc(12px + var(--safe-top)); right: 12px; padding: 7px 12px; border-radius: 18px;
+  font-family: var(--jp); font-size: 13px; color: #fff; border: 1.5px solid var(--neon-soft); background: rgba(5,10,25,0.6);
+  box-shadow: 0 0 10px var(--neon-soft) inset;
+}
+.lang-btn:active { transform: scale(0.94); }
+.lang-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.lang-opt { padding: 12px 6px; border-radius: 10px; font-family: var(--jp); font-size: 15px; border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); color: #dce9ff; }
+.lang-opt.on { border-color: var(--neon); color: #fff; background: hsla(var(--hue), 100%, 50%, 0.22); box-shadow: 0 0 12px var(--neon-soft); }
+#scrTitle { position: absolute; }

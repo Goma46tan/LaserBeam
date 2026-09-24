@@ -4,6 +4,7 @@ import { BUDGET } from './budget3d.js';
 import { R } from './render3d.js';
 import * as GEAR from './gear.js';
 import { openShop } from './shop.js';
+import { t, setLang, getLang, detectLang, LANGS, langName } from './i18n.js';
 
 const A = window.LB.Audio;
 const $ = (id) => document.getElementById(id);
@@ -18,6 +19,7 @@ function loadSave() {
     const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (d) { Object.assign(save, d); save.settings = Object.assign({ sfx: true, music: true, vib: true, quality: 'high' }, d.settings || {}); }
   } catch (e) { /* storage unavailable */ }
+  if (!save.lang) save.lang = detectLang();
   if (typeof save.pt !== 'number') save.pt = 300 + totalStars() * 20;
   save.owned = Array.from(new Set([...(save.owned || []), ...GEAR.FREE]));
   save.equip = Object.assign({}, GEAR.DEFAULT_EQUIP, save.equip || {});
@@ -53,7 +55,7 @@ function toShop(back) {
   if (game.mode === 'play') startDemo();
   game.mode = 'shop';
   closeModal(); hud(false); show('scrShop');
-  openShop({ save, writeSave, A, toast });
+  openShop({ save, writeSave, A, toast, t });
 }
 function hud(on) { $('hud').classList.toggle('hidden', !on); }
 function openModal(html, cls) {
@@ -168,7 +170,7 @@ function showIntro(key, done) {
     <div class="intro-badge">NEW GIMMICK</div>
     <canvas class="intro-ico" id="introIco"></canvas>
     <div class="intro-name">${gm.name}</div>
-    <div class="intro-desc">${gm.desc}</div>
+    <div class="intro-desc">${t('g.' + key)}</div>
     <div class="btns"><button class="neon-btn" id="btnIntroOk">OK</button></div>`);
   const icon = R.iconCanvas(m[0], m[1], 96);
   const c = $('introIco'); c.width = icon.width; c.height = icon.height; c.getContext('2d').drawImage(icon, 0, 0);
@@ -199,7 +201,7 @@ function onClear() {
       <tr><td>LASER BONUS (${sim.lasers} × 500)</td><td>${bonus.toLocaleString()}</td></tr>
       <tr class="total"><td>TOTAL</td><td>${total.toLocaleString()}</td></tr>
     </table>
-    <div class="pt-gain">+${pt.toLocaleString()} PT${first ? '' : ' <small>(再クリア)</small>'}<span>所持 ${save.pt.toLocaleString()} PT</span></div>
+    <div class="pt-gain">+${pt.toLocaleString()} PT${first ? '' : ` <small>${t('res.replay')}</small>`}<span>${t('res.owned', { pt: save.pt.toLocaleString() })}</span></div>
     ${newRec && prevBest > 0 ? '<div class="newrec">NEW RECORD!</div>' : ''}
     <div class="btns">
       ${n < N ? '<button class="neon-btn big" id="btnNext">NEXT STAGE</button>' : '<button class="neon-btn gold big" id="btnNext">ALL CLEAR!</button>'}
@@ -217,8 +219,8 @@ function onFail() {
   openModal(`
     <h2 class="fail">SYSTEM FAILURE</h2>
     <div class="sub fail">OUT OF LASER ENERGY</div>
-    <div class="jp" style="font-size:13px;color:#cfe0f5;margin:6px 0 2px">残りターゲット <b style="color:#fff">${sim.targetsLeft}</b> / ${sim.targetsTotal}</div>
-    <div class="jp" style="font-size:11px;color:var(--dim)">${sim.stage.boss ? 'ヒント：装甲や壁の隙間がコアの正面に来た瞬間を狙おう' : 'ヒント：支えている脚や柱を撃ち抜くと一気に崩れる'}</div>
+    <div class="jp" style="font-size:13px;color:#cfe0f5;margin:6px 0 2px">${t('fail.left', { left: `<b style="color:#fff">${sim.targetsLeft}</b>`, total: sim.targetsTotal })}</div>
+    <div class="jp" style="font-size:11px;color:var(--dim)">${t(sim.stage.boss ? 'fail.hintBoss' : 'fail.hint')}</div>
     <div class="btns">
       <button class="neon-btn big" id="btnRetry">RETRY</button>
       <button class="neon-btn ghost" id="btnMenu">STAGES</button>
@@ -256,34 +258,39 @@ function howTo(back) {
   const wasPlay = game.mode === 'play';
   openModal(`
     <h2>HOW TO PLAY</h2>
-    <div class="sub">ミッション</div>
-    <ul class="help">
-      <li>画面をタップ（指を離した位置）に向かってレーザーを撃ち込む。</li>
-      <li>当たったブロックは破壊され、後ろのブロックは奥へ押し出される。着弾点の衝撃波で周囲も吹き飛ぶ。</li>
-      <li>すべてのターゲットを<b>破壊するか台座から落とせば</b>クリア。</li>
-      <li>支えの<b>脚や柱</b>を撃ち抜くと、上の塊ごと一気に崩れ落ちる。</li>
-      <li>回転する台座は、狙いたい面がこちらを向いた瞬間に撃とう。</li>
-      <li>残りレーザーが多いほど高スコア＆★が増える。連続破壊でコンボ！</li>
-    </ul>
+    <div class="sub">${t('how.sub')}</div>
+    <ul class="help">${[1, 2, 3, 4, 5, 6].map((i) => `<li>${t('how.' + i)}</li>`).join('')}</ul>
     <div class="btns"><button class="neon-btn" id="btnHowOk">OK</button></div>`);
   $('btnHowOk').onclick = () => { A.play('ui'); closeModal(); if (back && wasPlay) back(); };
 }
+
+function langPicker(back) {
+  openModal(`<h2>LANGUAGE</h2><div class="sub jp">${t('lang.sub')}</div>
+    <div class="lang-list">${LANGS.map((l) => `<button class="lang-opt ${l.code === getLang() ? 'on' : ''}" data-code="${l.code}">${l.name}</button>`).join('')}</div>
+    <div class="btns"><button class="neon-btn" id="btnLangOk">OK</button></div>`);
+  document.querySelectorAll('.lang-opt').forEach((b) => {
+    b.onclick = () => { save.lang = b.dataset.code; writeSave(); setLang(save.lang); A.play('ui'); refreshLangButton(); langPicker(back); };
+  });
+  $('btnLangOk').onclick = () => { A.play('ui'); if (back) back(); else closeModal(); };
+}
+function refreshLangButton() { $('btnLang').innerHTML = `🌐 <span>${langName(getLang())}</span>`; }
 
 function settings() {
   const s = save.settings;
   openModal(`
     <h2>SETTINGS</h2>
     <div class="sub">SYSTEM CONFIG</div>
-    <div class="set-row"><div>SOUND FX<span class="jp">効果音</span></div><button class="toggle ${s.sfx ? 'on' : ''}" id="tSfx"></button></div>
-    <div class="set-row"><div>MUSIC<span class="jp">BGM</span></div><button class="toggle ${s.music ? 'on' : ''}" id="tBgm"></button></div>
-    <div class="set-row"><div>VIBRATION<span class="jp">振動（対応端末のみ）</span></div><button class="toggle ${s.vib ? 'on' : ''}" id="tVib"></button></div>
-    <div class="set-row"><div>GRAPHICS<span class="jp">画質（LOWで軽量化）</span></div>
+    <div class="set-row"><div>SOUND FX<span class="jp">${t('set.sfx')}</span></div><button class="toggle ${s.sfx ? 'on' : ''}" id="tSfx"></button></div>
+    <div class="set-row"><div>MUSIC<span class="jp">${t('set.bgm')}</span></div><button class="toggle ${s.music ? 'on' : ''}" id="tBgm"></button></div>
+    <div class="set-row"><div>VIBRATION<span class="jp">${t('set.vib')}</span></div><button class="toggle ${s.vib ? 'on' : ''}" id="tVib"></button></div>
+    <div class="set-row"><div>GRAPHICS<span class="jp">${t('set.gfx')}</span></div>
       <div class="seg"><button id="qHigh" class="${s.quality === 'high' ? 'on' : ''}">HIGH</button><button id="qLow" class="${s.quality === 'low' ? 'on' : ''}">LOW</button></div></div>
+    <div class="set-row"><div>LANGUAGE<span class="jp">${t('set.lang')}</span></div><button class="neon-btn ghost sub" id="btnLang2">🌐 ${langName(getLang())}</button></div>
     <div class="btns">
       <button class="neon-btn ghost" id="btnHow2">HOW TO PLAY</button>
       <button class="neon-btn" id="btnSetOk">OK</button>
     </div>
-    <button class="danger-link" id="btnReset">セーブデータをリセット</button>`);
+    <button class="danger-link" id="btnReset">${t('set.reset')}</button>`);
   const tog = (id, key, fn) => { $(id).onclick = () => { s[key] = !s[key]; $(id).classList.toggle('on', s[key]); if (fn) fn(s[key]); writeSave(); A.play('ui'); }; };
   tog('tSfx', 'sfx', (v) => A.setSfx(v));
   tog('tBgm', 'music', (v) => A.setMusic(v));
@@ -291,12 +298,13 @@ function settings() {
   const q = (v) => { s.quality = v; R.quality = v; R.resize(); writeSave(); $('qHigh').classList.toggle('on', v === 'high'); $('qLow').classList.toggle('on', v === 'low'); A.play('ui'); };
   $('qHigh').onclick = () => q('high'); $('qLow').onclick = () => q('low');
   $('btnHow2').onclick = () => { A.play('ui'); howTo(); };
+  $('btnLang2').onclick = () => { A.play('ui'); langPicker(settings); };
   $('btnSetOk').onclick = () => { A.play('ui'); closeModal(); };
   $('btnReset').onclick = () => {
-    openModal(`<h2 class="fail">RESET?</h2><div class="jp" style="margin:8px 0 4px;font-size:13px">すべての進行状況と★が消去されます。</div>
+    openModal(`<h2 class="fail">RESET?</h2><div class="jp" style="margin:8px 0 4px;font-size:13px">${t('reset.confirm')}</div>
       <div class="btns"><div class="row"><button class="neon-btn ghost" id="rNo">CANCEL</button><button class="neon-btn" id="rYes" style="border-color:var(--danger)">RESET</button></div></div>`);
     $('rNo').onclick = () => { A.play('ui'); settings(); };
-    $('rYes').onclick = () => { save.unlocked = 1; save.stars = []; save.best = []; save.seen = {}; writeSave(); A.play('fail'); closeModal(); toTitle(); };
+    $('rYes').onclick = () => { save.unlocked = 1; save.stars = []; save.best = []; save.seen = {}; save.pt = 300; save.owned = [...GEAR.FREE]; save.equip = { ...GEAR.DEFAULT_EQUIP }; writeSave(); A.play('fail'); closeModal(); toTitle(); };
   };
 }
 
@@ -623,10 +631,12 @@ function frameBody(now) {
 /* ------------------------------------------------------------------- boot */
 function boot() {
   loadSave();
+  setLang(save.lang);
+  refreshLangButton();
   R.quality = save.settings.quality;
   A.sfxOn = save.settings.sfx; A.musicOn = save.settings.music;
   try { R.init($('cv')); } catch (err) {
-    document.body.insertAdjacentHTML('beforeend', '<div class="nogl jp">この端末ではWebGLが使えないため、ゲームを表示できません。</div>');
+    document.body.insertAdjacentHTML('beforeend', `<div class="nogl jp">${t('nogl')}</div>`);
     return;
   }
   const cv = $('cv');
@@ -647,6 +657,7 @@ function boot() {
   $('btnSelect').onclick = () => { A.init(); A.play('ui'); toSelect(); };
   $('btnSettings').onclick = () => { A.init(); A.play('ui'); settings(); };
   $('btnShop').onclick = () => { A.init(); A.play('ui'); toShop(toTitle); };
+  $('btnLang').onclick = () => { A.init(); A.play('ui'); langPicker(); };
   $('btnSelShop').onclick = () => { A.play('ui'); toShop(toSelect); };
   $('btnShopBack').onclick = () => { A.play('ui'); (game.shopBack || toTitle)(); };
   $('btnSelBack').onclick = () => { A.play('ui'); toTitle(); };

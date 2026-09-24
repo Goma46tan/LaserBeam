@@ -1,5 +1,5 @@
 /* LaserBeam - equipment shop screen */
-import { CATALOG, BY_ID, SLOTS, RARITY } from './gear.js';
+import { CATALOG, BY_ID, SLOTS, RARITY, itemDesc } from './gear.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -69,7 +69,7 @@ function render() {
     const r = RARITY[it.rarity];
     return `<div class="item r${it.rarity} ${eq ? 'is-eq' : ''} ${locked ? 'is-lock' : ''}" style="--rh:${r.hue}">
       ${iconSvg(it)}
-      <div class="info"><div class="nm">${it.name}</div><div class="rar">${r.name}</div><div class="ds">${it.jp}</div></div>
+      <div class="info"><div class="nm">${it.name}</div><div class="rar">${r.name}</div><div class="ds">${itemDesc(it)}</div></div>
       ${btn}</div>`;
   }).join('');
   $('shopList').querySelectorAll('button[data-act]').forEach((b) => {
@@ -82,7 +82,7 @@ function render() {
       save.equip[it.slot] = it.id;
       ctx.writeSave();
       ctx.A.play('bonus');
-      ctx.toast(`${it.name} を装備しました`);
+      ctx.toast(ctx.t('toast.equipped', { name: it.name }));
       render();
     };
   });
