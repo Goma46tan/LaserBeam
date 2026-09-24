@@ -2,6 +2,8 @@
 import * as C from './core3d.js';
 import { BUDGET } from './budget3d.js';
 import { R } from './render3d.js';
+import * as GEAR from './gear.js';
+import { openShop } from './shop.js';
 
 const A = window.LB.Audio;
 const $ = (id) => document.getElementById(id);
@@ -16,9 +18,15 @@ function loadSave() {
     const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (d) { Object.assign(save, d); save.settings = Object.assign({ sfx: true, music: true, vib: true, quality: 'high' }, d.settings || {}); }
   } catch (e) { /* storage unavailable */ }
+  if (typeof save.pt !== 'number') save.pt = 300 + totalStars() * 20;
+  save.owned = Array.from(new Set([...(save.owned || []), ...GEAR.FREE]));
+  save.equip = Object.assign({}, GEAR.DEFAULT_EQUIP, save.equip || {});
+  for (const k of Object.keys(save.equip)) if (!save.owned.includes(save.equip[k])) save.equip[k] = GEAR.DEFAULT_EQUIP[k];
 }
 function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
 const totalStars = () => save.stars.reduce((a, b) => a + (b || 0), 0);
+const gearNow = () => GEAR.computeGear(save.equip);
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show'); }
 function vib(ms) { if (save.settings.vib && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) { /* ignore */ } }
 
 /* ----------------------------------------------------------------- state */
@@ -39,7 +47,14 @@ function setThemeHue(h) {
 }
 
 /* --------------------------------------------------------------- screens */
-function show(id) { for (const s of ['scrTitle', 'scrSelect']) $(s).classList.toggle('hidden', s !== id); }
+function show(id) { for (const s of ['scrTitle', 'scrSelect', 'scrShop']) $(s).classList.toggle('hidden', s !== id); }
+function toShop(back) {
+  game.shopBack = back;
+  if (game.mode === 'play') startDemo();
+  game.mode = 'shop';
+  closeModal(); hud(false); show('scrShop');
+  openShop({ save, writeSave, A, toast });
+}
 function hud(on) { $('hud').classList.toggle('hidden', !on); }
 function openModal(html, cls) {
   $('modalCard').innerHTML = html;
@@ -66,6 +81,7 @@ function comboBanner(c) {
 function toTitle() {
   game.mode = 'title';
   closeModal(); hud(false); show('scrTitle');
+  $('btnShop').innerHTML = `LASER SHOP<span class="sm">${save.pt.toLocaleString()} PT</span>`;
   $('btnStart').innerHTML = save.unlocked > 1 ? `CONTINUE<span class="sm">STAGE ${Math.min(save.unlocked, N)}</span>` : 'START';
   startDemo();
   A.startMusic(99, 0.8);
@@ -111,7 +127,7 @@ function startStage(n) {
   n = Math.max(1, Math.min(N, n));
   game.stageN = n;
   const st = C.getStage(n);
-  game.sim = new C.Sim(st);
+  game.sim = new C.Sim(st, { gear: gearNow() });
   game.mode = 'play'; game.paused = false; game.acc = 0;
   game.endT = -1; game.resultShown = false; game.slowT = 0; game.zoomT = 0;
   R.zoom = 0; R.aimWorld = null; hideReticle();
@@ -136,7 +152,7 @@ function diffMeter(n) {
 }
 function stageBanner(st) {
   if (st.boss) banner(st.bossKind === 'omega' ? '⚠ SECTOR BOSS ⚠' : '⚠ WARNING ⚠', st.bossName, `STAGE ${st.n}<br>${diffMeter(st.n)}`, true);
-  else banner(`SECTOR ${String(st.sector + 1).padStart(2, '0')} ─ ${st.sectorName}`, 'STAGE ' + st.n, `LASER × ${st.lasers}<br>${diffMeter(st.n)}`);
+  else banner(`SECTOR ${String(st.sector + 1).padStart(2, '0')} ─ ${st.sectorName}`, 'STAGE ' + st.n, `LASER × ${game.sim.lasers}${game.sim.gear.extra ? ` <span class="xtra">(+${game.sim.gear.extra})</span>` : ''}<br>${diffMeter(st.n)}`);
 }
 function showIntro(key, done) {
   const gm = C.GIMMICKS[key];
@@ -166,6 +182,9 @@ function onClear() {
   const total = sim.score + bonus;
   const prevBest = save.best[n - 1] || 0;
   const newRec = total > prevBest;
+  const first = !(save.stars[n - 1] > 0);
+  const pt = GEAR.ptReward(n, stars, total, first, sim.stage.boss, sim.gear.ptMul);
+  save.pt += pt;
   save.stars[n - 1] = Math.max(save.stars[n - 1] || 0, stars);
   if (newRec) save.best[n - 1] = total;
   save.unlocked = Math.max(save.unlocked, Math.min(N, n + 1));
@@ -180,11 +199,13 @@ function onClear() {
       <tr><td>LASER BONUS (${sim.lasers} × 500)</td><td>${bonus.toLocaleString()}</td></tr>
       <tr class="total"><td>TOTAL</td><td>${total.toLocaleString()}</td></tr>
     </table>
+    <div class="pt-gain">+${pt.toLocaleString()} PT${first ? '' : ' <small>(再クリア)</small>'}<span>所持 ${save.pt.toLocaleString()} PT</span></div>
     ${newRec && prevBest > 0 ? '<div class="newrec">NEW RECORD!</div>' : ''}
     <div class="btns">
       ${n < N ? '<button class="neon-btn big" id="btnNext">NEXT STAGE</button>' : '<button class="neon-btn gold big" id="btnNext">ALL CLEAR!</button>'}
-      <div class="row"><button class="neon-btn ghost" id="btnRetry">RETRY</button><button class="neon-btn ghost" id="btnMenu">STAGES</button></div>
+      <div class="row"><button class="neon-btn ghost" id="btnRetry">RETRY</button><button class="neon-btn ghost" id="btnShopR">SHOP</button><button class="neon-btn ghost" id="btnMenu">STAGES</button></div>
     </div>`);
+  $('btnShopR').onclick = () => { A.play('ui'); toShop(() => startStage(Math.min(N, n + 1))); };
   const els = document.querySelectorAll('.res-star');
   for (let i = 0; i < stars; i++) setTimeout(() => { els[i].classList.add('on'); A.play('star', { i }); vib(20); }, 350 + i * 320);
   $('btnNext').onclick = () => { A.play('ui'); if (n < N) startStage(n + 1); else toSelect(); };
@@ -317,7 +338,7 @@ function buildSectorStrip() {
   });
   const act = el.querySelector('.active');
   if (act) setTimeout(() => act.scrollIntoView({ inline: 'center', block: 'nearest' }), 0);
-  $('selTotal').textContent = `★ ${totalStars()} / ${N * 3}`;
+  $('selTotal').textContent = `★ ${totalStars()}  ・  ${save.pt.toLocaleString()} PT`;
 }
 function buildGrid() {
   const s = selSector;
@@ -396,20 +417,28 @@ function processEvents() {
   const fx = R.fx;
   for (const e of evs) {
     switch (e.t) {
-      case 'laser':
-        fx.beam(e, hue);
+      case 'laser': {
+        if (e.main !== false) game.beam = GEAR.beamHue(demo ? 'kSector' : save.equip.color, hue, R.t);
+        const bc = game.beam || { h: hue, s: 1 };
+        fx.beam(e, bc.h, bc.s);
         R.aimWorld = new (R.camera().position.constructor)(e.x, e.y, e.z);
-        fx.flare(e, 1.1, 0.3, hue, true);
-        fx.spark(e, hue, 12, 7, 0.4);
-        fx.light(e, hue, 30);
+        fx.flare(e, 1.1, 0.3, bc.h, true);
+        fx.spark(e, bc.h, 12, 7, 0.4);
+        fx.light(e, bc.h, 30);
         R.addShake(0.06);
         A.play('laser');
         if (!demo) vib(8);
         if (e.result === 'empty') {
-          fx.ring(e, 0.2, C.BLAST_R, 0.38, hue, 0.06);
-          fx.glows(e, hue, 6, 3, 0.35, 0.4);
+          fx.ring(e, 0.2, C.BLAST_R, 0.38, bc.h, 0.06);
+          fx.glows(e, bc.h, 6, 3, 0.35, 0.4);
           A.play('blast');
         }
+        break;
+      }
+      case 'overload':
+        R.addShake(0.25); R.addFlash(0.25, R.hsl(0, 1, 0.5));
+        if (!demo) banner('', 'OVERLOAD!', '');
+        A.play('bomb');
         break;
       case 'hit':
         fx.spark(e, R.blockHue(e.body.lb), 14, 9, 0.45);
@@ -485,7 +514,7 @@ function processEvents() {
         break;
       }
       case 'bonus':
-        R.pop(e, `+${e.n} LASER`, 48, 24, 1.3);
+        R.pop(e, e.refund ? 'RECHARGE +1' : `+${e.n} LASER`, e.refund ? 120 : 48, e.refund ? 18 : 24, 1.3);
         fx.glows(e, 48, 14, 6, 0.5, 0.8);
         fx.ring(e, 0.2, 2.6, 0.5, 48, 0.07);
         A.play('bonus');
@@ -578,7 +607,7 @@ function frameBody(now) {
       while (game.acc >= 1 / 60 && n < 3) { sim.step(); game.acc -= 1 / 60; n++; }
       if (n >= 3) game.acc = 0;
     }
-    if (game.mode === 'title' || game.mode === 'select') demoTick(rdt);
+    if (game.mode === 'title' || game.mode === 'select' || game.mode === 'shop') demoTick(rdt);
     processEvents();
     if (game.mode === 'play' && game.endT > 0) {
       game.endT -= rdt;
@@ -617,6 +646,9 @@ function boot() {
   $('btnStart').onclick = () => { A.init(); A.play('ui'); startStage(Math.min(save.unlocked, N)); };
   $('btnSelect').onclick = () => { A.init(); A.play('ui'); toSelect(); };
   $('btnSettings').onclick = () => { A.init(); A.play('ui'); settings(); };
+  $('btnShop').onclick = () => { A.init(); A.play('ui'); toShop(toTitle); };
+  $('btnSelShop').onclick = () => { A.play('ui'); toShop(toSelect); };
+  $('btnShopBack').onclick = () => { A.play('ui'); (game.shopBack || toTitle)(); };
   $('btnSelBack').onclick = () => { A.play('ui'); toTitle(); };
   $('btnPause').onclick = () => { A.play('ui'); pause(); };
   window.addEventListener('keydown', (e) => {

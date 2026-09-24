@@ -683,7 +683,7 @@ function spawnBeam(a, b, col) {
   const len = a.distanceTo(b);
   const grp = new THREE.Group();
   grp.position.copy(a); grp.lookAt(b);
-  const layers = [[0.26, col.clone().multiplyScalar(0.8), 0.35], [0.11, col.clone().multiplyScalar(2), 0.8], [0.035, new THREE.Color(4, 4, 4), 1]];
+  const layers = [[0.32, col.clone().multiplyScalar(1.4), 0.5], [0.13, col.clone().multiplyScalar(2.6), 0.95], [0.025, col.clone().lerp(new THREE.Color(1, 1, 1), 0.5).multiplyScalar(3), 1]];
   for (const [w, c, o] of layers) {
     const m = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
     m.scale.set(w, w, len); m.userData.w = w; m.userData.o = o;
@@ -717,7 +717,7 @@ R.clearFx = function () {
 /* ---------------------------------------------------------------- fx API */
 const V3 = (p) => new THREE.Vector3(p.x, p.y, p.z);
 R.fx = {
-  beam(to, hue) { spawnBeam(R.muzzleWorld(), V3(to), hsl(hue, 1, 0.6)); R.recoil = 1; spawnFlare(R.muzzleWorld(), 0.5, 0.16, hsl(hue, 1, 0.6)); },
+  beam(to, hue, sat) { const c = hsl(hue, sat === undefined ? 1 : sat, sat === 0 ? 0.85 : 0.6); spawnBeam(R.muzzleWorld(), V3(to), c); R.recoil = 1; spawnFlare(R.muzzleWorld(), 0.5, 0.16, c); },
   spark(p, hue, n, speed, life, size) {
     const c = hsl(hue, 1, 0.65);
     for (let i = 0; i < n; i++) {

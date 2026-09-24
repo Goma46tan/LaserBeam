@@ -57,6 +57,7 @@
     <div class="title-menu">
       <button id="btnStart" class="neon-btn big">START</button>
       <button id="btnSelect" class="neon-btn">STAGE SELECT</button>
+      <button id="btnShop" class="neon-btn gold">LASER SHOP</button>
       <button id="btnSettings" class="neon-btn ghost">SETTINGS</button>
     </div>
     <div class="title-foot">TAP TO FIRE ─ レーザーでブロックを台座から吹き飛ばせ</div>
@@ -68,11 +69,25 @@
       <button id="btnSelBack" class="icon-btn" aria-label="戻る">&#x276E;</button>
       <div class="sel-title">STAGE SELECT</div>
       <div id="selTotal" class="sel-total">★ 0 / 3000</div>
+      <button id="btnSelShop" class="icon-btn" aria-label="ショップ">🛒</button>
     </header>
     <div id="sectorStrip" class="sector-strip"></div>
     <div id="sectorInfo" class="sector-info"></div>
     <div id="stageGrid" class="stage-grid"></div>
   </section>
+
+  <!-- SHOP -->
+  <section id="scrShop" class="screen hidden">
+    <header class="sel-head">
+      <button id="btnShopBack" class="icon-btn" aria-label="戻る">&#x276E;</button>
+      <div class="sel-title">LASER SHOP</div>
+      <div id="shopPt" class="pt-badge">0 PT</div>
+    </header>
+    <div id="loadout" class="loadout"></div>
+    <div id="shopTabs" class="shop-tabs"></div>
+    <div id="shopList" class="shop-list"></div>
+  </section>
+  <div id="toast" class="toast"></div>
 
   <!-- MODAL -->
   <div id="modal" class="modal hidden">

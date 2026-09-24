@@ -859,7 +859,10 @@ export class Sim {
     this.g = g;
     this.t = 0; this.stepN = 0;
     this.events = [];
-    this.lasers = stage.lasers; this.shots = 0;
+    // equipment (see js/gear.js): all multipliers default to "no effect"
+    this.gear = Object.assign({ blastR: 1, blastK: 1, pierce: 1, dmg: 1, armorDmg: 0, splitN: 0, splitK: 0.6, extra: 0, starBonus: 0, chain: 1, overload: 0, recharge: 0 }, opts.gear || {});
+    this._mulR = 1; this._mulK = 1; this._lastPos = { x: 0, y: 2, z: 0 };
+    this.lasers = stage.lasers + this.gear.extra; this.shots = 0;
     this.score = 0; this.combo = 0; this.lastScoreT = -10;
     this.bodies = []; this.targets = []; this.kin = []; this.floats = [];
     this.tethers = []; this.shields = [];
@@ -1074,7 +1077,7 @@ export class Sim {
         L.cleared = true; this.targetsLeft--;
         const pts = this._addScore(150);
         this.events.push({ t: 'fall', body: b, x: p.x, y: Math.max(p.y, this.killY), z: p.z, pts, combo: this.combo });
-        if (L.type === 'star') this._bonus(b, 2);
+        if (L.type === 'star') this._bonus(b, 2 + this.gear.starBonus);
         this._detachTethers(b);
       }
       if (p.y < this.killY - 22 || Math.abs(p.x) > 40 || Math.abs(p.z) > 40) {
@@ -1099,6 +1102,10 @@ export class Sim {
 
   _addScore(base) {
     if (this.t - this.lastScoreT < 1.1) this.combo = Math.min(this.combo + 1, 99); else this.combo = 1;
+    if (this.gear.recharge && this.combo % this.gear.recharge === 0) {
+      this.lasers += 1;
+      this.events.push({ t: 'bonus', n: 1, refund: true, ...this._lastPos });
+    }
     this.lastScoreT = this.t;
     const pts = base * this.combo;
     this.score += pts;
@@ -1148,9 +1155,10 @@ export class Sim {
     this._detachTethers(b);
     this.world.removeBody(b);
     const pos = { x: b.position.x, y: b.position.y, z: b.position.z };
+    this._lastPos = pos;
     const pts = wasCounted ? 0 : this._addScore(L.type === 'core' ? 3000 : L.type === 'bomb' ? 300 : L.type === 'gen' ? 500 : 100);
     this.events.push({ t: 'destroy', body: b, x: pos.x, y: pos.y, z: pos.z, cause, pts, combo: this.combo });
-    if (L.type === 'star' && !wasCounted) this._bonus(b, 2);
+    if (L.type === 'star' && !wasCounted) this._bonus(b, 2 + this.gear.starBonus);
     if (L.type === 'bomb') {
       this.events.push({ t: 'bomb', x: pos.x, y: pos.y, z: pos.z });
       this.blast(pos, 4, 15, b, 'bomb');
@@ -1166,12 +1174,13 @@ export class Sim {
         if (o.lb.alive && ko && o.lb.kin.mode === 'orbit' && o.lb.type === 'steel' && Math.hypot(ko.cx - pos.x, ko.cy - pos.y, ko.cz - pos.z) < 1.5) { o.lb.kin.release = true; this._release(o); }
       }
     } else if (L.type === 'gen') this.blast(pos, 1.6, 5, b, 'gen');
-    else if (cause === 'impact') this.blast(pos, 1.5, 5.5, b, 'destroy');
-    else this.blast(pos, 2.1, 8.5, b, 'destroy', cause === 'laser' ? this._rayDir : null);
+    else if (cause === 'impact') this.blast(pos, 1.5 * this.gear.chain, 5.5 * this.gear.chain, b, 'destroy');
+    else this.blast(pos, 2.1 * this.gear.chain, 8.5 * this.gear.chain, b, 'destroy', cause === 'laser' ? this._rayDir : null);
   }
 
   // radial shockwave; `push` optionally adds a directional shove (the laser direction)
   blast(p, R, K, exclude, kind, push) {
+    R *= this._mulR; K *= this._mulK;
     this.events.push({ t: 'blast', x: p.x, y: p.y, z: p.z, r: R, kind });
     for (const b of this.bodies) {
       const L = b.lb;
@@ -1227,12 +1236,13 @@ export class Sim {
     let n = 0;
     for (let i = 1; i < list.length && n < 4; i++) {
       const h = list[i], b = h.body, L = b.lb;
-      if (h.dist - first.dist > SIM_OPTS.pierceDepth) break;
+      const depth = SIM_OPTS.pierceDepth * Math.sqrt(this.gear.pierce);
+      if (h.dist - first.dist > depth) break;
       if (!L.target && L.kind !== 'steel') break;          // pedestals / spinners stop the beam
       if (b.type !== CANNON.Body.DYNAMIC) continue;
-      const f = 1 - (h.dist - first.dist) / (SIM_OPTS.pierceDepth + 0.5);
+      const f = 1 - (h.dist - first.dist) / (depth + 0.5);
       const mf = clamp(Math.sqrt(1 / L.mass), 0.3, 1.2);
-      const k = SIM_OPTS.pierce * f * mf;
+      const k = SIM_OPTS.pierce * this.gear.pierce * this._mulK * f * mf;
       b.wakeUp();
       b.velocity.x += dir.x * k; b.velocity.y += dir.y * k + 1.5 * f; b.velocity.z += dir.z * k;
       b.angularVelocity.x += -dir.z * 4 * f; b.angularVelocity.z += dir.x * 4 * f;
@@ -1244,6 +1254,27 @@ export class Sim {
   fire(o, dir) {
     if (this.lasers <= 0 || this.state !== 'play') return false;
     this.lasers--; this.shots++; this.lastShotStep = this.stepN;
+    const g = this.gear;
+    const over = g.overload > 0 && this.shots % g.overload === 0;
+    const mR = g.blastR * (over ? 1.5 : 1), mK = g.blastK * (over ? 1.6 : 1), dmg = g.dmg + (over ? 1 : 0);
+    if (over) this.events.push({ t: 'overload' });
+    this._shot(o, dir, mR, mK, dmg, true);
+    if (g.splitN) {
+      // extra beams fanned out left/right (free, weaker)
+      const angs = g.splitN >= 4 ? [-0.11, -0.055, 0.055, 0.11] : [-0.06, 0.06];
+      for (const a of angs) {
+        const c = Math.cos(a), sn = Math.sin(a);
+        const d2 = { x: dir.x * c + dir.z * sn, y: dir.y, z: -dir.x * sn + dir.z * c };
+        this._shot(o, d2, mR * (0.45 + g.splitK * 0.5), mK * g.splitK, g.splitDmg || 0, false);
+      }
+    }
+    this._mulR = 1; this._mulK = 1;
+    return true;
+  }
+
+  // resolve one beam: shield, tether, block hit or empty-space detonation
+  _shot(o, dir, mR, mK, dmg, main) {
+    this._mulR = mR; this._mulK = mK;
     this._rayDir = dir;
     const hits = this.raycastList(o, dir, 120);
     const hit = hits[0] || null;
@@ -1262,7 +1293,7 @@ export class Sim {
       if (tIn !== null && (!hit || hit.dist > tIn)) {
         const p = { x: o.x + dir.x * tIn, y: o.y + dir.y * tIn, z: o.z + dir.z * tIn };
         s.hitT = this.t; s.hitP = p;
-        this.events.push({ t: 'laser', ...p, result: 'shield' });
+        this.events.push({ t: 'laser', ...p, result: 'shield', main });
         this.events.push({ t: 'shieldHit', ...p, s });
         return true;
       }
@@ -1270,23 +1301,23 @@ export class Sim {
     if (tc && (!hit || tcDist < hit.dist)) {
       const p = { x: o.x + dir.x * tcDist, y: o.y + dir.y * tcDist, z: o.z + dir.z * tcDist };
       tc.lb.alive = false; this.world.removeConstraint(tc);
-      this.events.push({ t: 'laser', ...p, result: 'cut' });
+      this.events.push({ t: 'laser', ...p, result: 'cut', main });
       this.events.push({ t: 'cut', ...p });
       return true;
     }
     if (hit) {
       const L = hit.body.lb, p = hit.p;
       if (!L.target) {
-        this.events.push({ t: 'laser', ...p, result: 'deflect' });
+        this.events.push({ t: 'laser', ...p, result: 'deflect', main });
         this.events.push({ t: 'deflect', ...p });
         this.blast(p, 1.6, 5, null, 'deflect', dir);
         return true;
       }
-      this.events.push({ t: 'laser', ...p, result: 'hit' });
+      this.events.push({ t: 'laser', ...p, result: 'hit', main });
       if (L.kin && L.kin.release) this._release(hit.body);
       if (L.float && L.float.on) { L.float.on = false; this.events.push({ t: 'floatOff', ...p }); }
       this.events.push({ t: 'hit', ...p, body: hit.body });
-      this.damage(hit.body, 1, 'laser');
+      if (dmg > 0) this.damage(hit.body, dmg + (L.type === 'armor' ? this.gear.armorDmg : 0), 'laser');
       this._flush();
       this._pierce(hits, dir);
       if (L.alive) {
@@ -1302,7 +1333,7 @@ export class Sim {
     let tt = Math.abs(dir.z) > 1e-3 ? (pz - o.z) / dir.z : 20;
     if (!(tt > 0)) tt = 20;
     const p = { x: o.x + dir.x * tt, y: o.y + dir.y * tt, z: o.z + dir.z * tt };
-    this.events.push({ t: 'laser', ...p, result: 'empty' });
+    this.events.push({ t: 'laser', ...p, result: 'empty', main });
     this.blast(p, BLAST_R, 10, null, 'empty', dir);
     return true;
   }

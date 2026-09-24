@@ -283,3 +283,50 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .diff .bars { display: inline-flex; gap: 2px; }
 .diff .bars i { width: 6px; height: 10px; border-radius: 1px; background: rgba(255,255,255,0.15); }
 .diff .bars i.on { background: hsl(calc(130 - var(--lv) * 13), 100%, 55%); box-shadow: 0 0 6px hsl(calc(130 - var(--lv) * 13), 100%, 55%); }
+
+/* ------------------------------------------------------------------ shop */
+#scrShop { background: linear-gradient(180deg, rgba(3,2,12,0.9), rgba(3,2,12,0.8)); padding-top: var(--safe-top); max-width: 640px; margin: 0 auto; left: 0; right: 0; }
+.pt-badge, .sel-total { font-weight: 700; }
+.pt-badge { color: var(--gold); text-shadow: 0 0 8px var(--gold); font-size: 15px; font-variant-numeric: tabular-nums; }
+.loadout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 14px 4px; }
+.lo-slot { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 10px; text-align: left; border: 1.5px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); min-width: 0; }
+.lo-slot.active { border-color: var(--neon); box-shadow: 0 0 10px var(--neon-soft) inset; }
+.lo-slot .ico { width: 30px; height: 30px; flex: none; }
+.lo-k { font-size: 8px; letter-spacing: 2px; color: var(--dim); }
+.lo-v { font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-slot > div:last-child { min-width: 0; }
+.shop-tabs { display: flex; gap: 6px; padding: 8px 14px; }
+.st-tab { flex: 1; padding: 8px 4px 6px; border-radius: 9px; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: 1.5px solid rgba(255,255,255,0.14); color: var(--dim); }
+.st-tab small { display: block; font-size: 9px; font-weight: 500; margin-top: 2px; opacity: 0.8; }
+.st-tab.active { color: #fff; border-color: var(--neon); background: hsla(var(--hue), 100%, 50%, 0.18); text-shadow: 0 0 6px var(--neon); }
+.shop-list { flex: 1; overflow-y: auto; padding: 4px 14px calc(20px + var(--safe-bot)); display: flex; flex-direction: column; gap: 8px; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; border: 1.5px solid hsla(var(--rh), 90%, 60%, 0.35); background: linear-gradient(120deg, hsla(var(--rh), 90%, 40%, 0.16), rgba(8,8,20,0.6)); }
+.item.r3 { border-color: hsla(var(--rh), 100%, 60%, 0.7); box-shadow: 0 0 12px hsla(var(--rh), 100%, 55%, 0.25) inset; }
+.item.r4 { border-color: hsla(var(--rh), 100%, 60%, 0.9); box-shadow: 0 0 14px hsla(var(--rh), 100%, 55%, 0.4) inset, 0 0 10px hsla(var(--rh), 100%, 55%, 0.3); }
+.item.is-eq { border-color: var(--neon); box-shadow: 0 0 14px var(--neon-soft) inset; }
+.item.is-lock { opacity: 0.5; }
+.item .ico { width: 44px; height: 44px; flex: none; }
+.ico { border-radius: 10px; display: grid; place-items: center; color: hsl(var(--ih), var(--is, 100%), 65%); background: hsla(var(--ih), var(--is, 100%), 40%, 0.2); border: 1px solid hsla(var(--ih), var(--is, 100%), 60%, 0.5); box-shadow: 0 0 10px hsla(var(--ih), var(--is, 100%), 55%, 0.35); }
+.ico svg { width: 68%; height: 68%; filter: drop-shadow(0 0 3px currentColor); }
+.ico.rainbow { border: 1px solid #fff; }
+.item .info { flex: 1; min-width: 0; }
+.item .nm { font-size: 12px; font-weight: 900; letter-spacing: 0.5px; }
+.item .rar { font-size: 8px; letter-spacing: 2px; color: hsl(var(--rh), 100%, 70%); margin: 2px 0 3px; }
+.item.r0 .rar { color: var(--dim); }
+.item .ds { font-family: var(--jp); font-size: 11px; line-height: 1.45; color: #cfe0f5; }
+.buy { flex: none; min-width: 84px; padding: 9px 8px; border-radius: 9px; font-size: 11px; font-weight: 900; letter-spacing: 0.5px; color: #201500; background: linear-gradient(180deg, #ffe680, #ffb830); box-shadow: 0 0 10px rgba(255,200,60,0.45); }
+.buy.poor { background: rgba(255,255,255,0.08); color: var(--dim); box-shadow: none; }
+.buy.own { background: transparent; border: 1.5px solid var(--neon); color: #fff; box-shadow: 0 0 8px var(--neon-soft); }
+.buy.eq { background: transparent; color: var(--neon); border: 1.5px dashed var(--neon-soft); box-shadow: none; }
+.buy.lock { background: transparent; color: var(--dim); font-size: 10px; box-shadow: none; border: 1px solid rgba(255,255,255,0.15); }
+.buy:active:not([disabled]) { transform: scale(0.94); }
+.buy.shake { animation: shake 0.35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+.pt-gain { margin: 12px 0 0; font-size: 22px; font-weight: 900; color: var(--gold); text-shadow: 0 0 10px var(--gold); }
+.pt-gain small { font-size: 11px; color: var(--dim); text-shadow: none; }
+.pt-gain span { display: block; font-size: 11px; font-weight: 500; color: var(--dim); text-shadow: none; margin-top: 2px; }
+.banner .xtra { color: var(--gold); }
+.toast { position: absolute; left: 50%; bottom: calc(40px + var(--safe-bot)); transform: translateX(-50%); padding: 10px 16px; border-radius: 20px; font-family: var(--jp); font-size: 13px; background: rgba(10,14,30,0.92); border: 1px solid var(--gold); color: #fff; opacity: 0; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { animation: toastIn 2.2s ease forwards; }
+@keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, 10px); } 10%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+.modal-card .row > .neon-btn { padding-left: 6px; padding-right: 6px; letter-spacing: 1px; }
