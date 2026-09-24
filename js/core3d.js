@@ -79,6 +79,11 @@ export const GIMMICKS = {
   bossFortress: { n: 30, name: 'BOSS: FORTRESS',      desc: '回転する城壁の中にコアが潜む。壁を崩すか、隙間が正面に来た瞬間に撃ち抜け。' },
   bossShield:   { n: 40, name: 'BOSS: SHIELD CORE',   desc: 'コアはシールドに守られている。先にジェネレーターを破壊してからコアを撃て。' },
   bossOmega:    { n: 50, name: 'BOSS: OMEGA CORE',    desc: '50ステージごとの大ボス。二重の装甲リングに守られた巨大コアを破壊せよ。' },
+  // enemies (see js/enemies.js)
+  enemyScout:   { n: 15,  name: 'ENEMY: SCOUT DRONE', desc: '' },
+  enemyGunship: { n: 45,  name: 'ENEMY: GUNSHIP',     desc: '' },
+  enemyBomber:  { n: 85,  name: 'ENEMY: BOMBER',      desc: '' },
+  enemySniper:  { n: 125, name: 'ENEMY: SNIPER',      desc: '' },
 };
 export const BOSSES = {
   guardian: { key: 'bossGuardian', name: 'CORE GUARDIAN' },
@@ -496,7 +501,7 @@ export function generate(n, variant) {
   const air = ['orbit', 'rotor', 'spinner', 'tether', 'float', 'shield'];
   const plat = ['turntable', 'moving', 'rock', 'elevator'];
   for (const k of GIMMICK_ORDER) {
-    if (k.startsWith('boss') || GIMMICKS[k].n >= n) continue;
+    if (k.startsWith('boss') || k.startsWith('enemy') || GIMMICKS[k].n >= n) continue;
     let p;
     if (typeish.includes(k)) p = k === 'star' ? 0.6 - 0.25 * d : 0.15 + 0.4 * d;
     else if (air.includes(k)) p = 0.1 + 0.3 * d;
@@ -1091,6 +1096,7 @@ export class Sim {
       }
     }
     this.calm = maxV < 0.25 ? this.calm + 1 : 0;
+    if (this.enemySys) this.enemySys.step(1 / 60);
     if (this.state === 'play') {
       if (this.targetsLeft <= 0) { this.state = 'clear'; this.events.push({ t: 'clear' }); }
       else if (this.lasers <= 0) {
@@ -1274,6 +1280,19 @@ export class Sim {
 
   // resolve one beam: shield, tether, block hit or empty-space detonation
   _shot(o, dir, mR, mK, dmg, main) {
+    if (this.enemySys) {
+      const eh = this.enemySys.rayHit(o, dir);
+      if (eh) {
+        const bh = this.raycast(o, dir, 120);
+        if (!bh || eh.dist < bh.dist + 0.6) {
+          const p = { x: o.x + dir.x * eh.dist, y: o.y + dir.y * eh.dist, z: o.z + dir.z * eh.dist };
+          if (main) { this.lasers++; this.shots--; }   // shooting enemies never costs a laser
+          this.events.push({ t: 'laser', ...p, result: 'enemy', main });
+          this.enemySys.hit(eh, Math.max(1, dmg));
+          return;
+        }
+      }
+    }
     this._mulR = mR; this._mulK = mK;
     this._rayDir = dir;
     const hits = this.raycastList(o, dir, 120);

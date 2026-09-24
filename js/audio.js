@@ -178,6 +178,23 @@
         noise(t, 0.07, bus, 0.1 + k * 0.15, 'bandpass', 900 + Math.random() * 900, 300, 1.5);
         break;
       }
+      case 'enemyFire': {
+        if (throttle('efire', 80)) return;
+        const o = osc('square', p.missile ? 220 : 520, t, p.missile ? 0.3 : 0.14, bus, 0.08);
+        o.frequency.exponentialRampToValueAtTime(p.missile ? 90 : 260, t + (p.missile ? 0.3 : 0.14));
+        noise(t, 0.08, bus, 0.12, 'bandpass', 1400, 600, 2);
+        break;
+      }
+      case 'hurt': {
+        const o = osc('sawtooth', 160, t, 0.35, bus, 0.3);
+        o.frequency.exponentialRampToValueAtTime(50, t + 0.3);
+        noise(t, 0.3, bus, 0.4, 'lowpass', 1600, 150);
+        break;
+      }
+      case 'warn': {
+        for (let i = 0; i < 3; i++) osc('square', 1400, t + i * 0.12, 0.06, bus, 0.06);
+        break;
+      }
       case 'crack': {
         if (throttle('crack', 40)) return;
         noise(t, 0.1, bus, 0.35, 'bandpass', 1500, 800, 3);

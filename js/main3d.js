@@ -4,6 +4,7 @@ import { BUDGET } from './budget3d.js';
 import { R } from './render3d.js';
 import * as GEAR from './gear.js';
 import { openShop } from './shop.js';
+import { genEnemies, EnemySystem } from './enemies.js';
 import { t, setLang, getLang, detectLang, LANGS, langName } from './i18n.js';
 
 const A = window.LB.Audio;
@@ -39,6 +40,12 @@ const game = {
   demoNext: 0, demoClearT: -1, lastHud: {}, lastHit: null,
 };
 
+function attachEnemies(sim, n, demo) {
+  const specs = genEnemies(sim.stage, n, sim.stage.variant);
+  sim.enemySys = specs.length ? new EnemySystem(sim, specs, { player: R.playerPos(), god: demo }) : null;
+  R.setEnemies(sim.enemySys);
+  $('hudHull').classList.toggle('hidden', !sim.enemySys || demo);
+}
 function stageHue(n) {
   const sec = Math.floor((n - 1) / 50);
   return sec === 19 ? (n * 47) % 360 : C.SECTORS[sec][1];
@@ -96,6 +103,7 @@ function startDemo() {
   game.demoNext = 2.2; game.demoClearT = -1;
   setThemeHue(stageHue(n));
   R.setStage(game.sim);
+  attachEnemies(game.sim, n, true);
   R.zoom = 0;
 }
 function demoTick(dt) {
@@ -136,6 +144,7 @@ function startStage(n) {
   setThemeHue(stageHue(n));
   closeModal(); show(null); hud(true);
   R.setStage(game.sim);
+  attachEnemies(game.sim, n, false);
   game.lastHud = {};
   $('hudStage').textContent = 'STAGE ' + n;
   $('hudSector').textContent = `Lv.${C.difficultyLevel(n)} // ${st.sectorName}`;
@@ -162,6 +171,7 @@ function showIntro(key, done) {
     star: ['star', 'box'], turntable: ['normal', 'round'], armor: ['armor', 'box'], orb: ['normal', 'orb'], bomb: ['bomb', 'box'],
     moving: ['normal', 'plank'], orbit: ['normal', 'box'], rotor: ['normal', 'box'], steel: ['steel', 'box'], spinner: ['steel', 'plank'],
     tether: ['normal', 'box'], float: ['normal', 'box'], rock: ['normal', 'plank'], shield: ['gen', 'gen'],
+    enemyScout: ['bomb', 'orb'], enemyGunship: ['bomb', 'box'], enemyBomber: ['bomb', 'plank'], enemySniper: ['bomb', 'gen'],
     bossGuardian: ['core', 'core'], bossTwin: ['core', 'core'], bossFortress: ['core', 'core'], bossShield: ['gen', 'gen'], bossOmega: ['core', 'core'],
     crystal: ['crystal', 'box'], phase: ['phase', 'box'], lowgrav: ['normal', 'orb'], elevator: ['normal', 'plank'],
   };
@@ -185,7 +195,8 @@ function onClear() {
   const prevBest = save.best[n - 1] || 0;
   const newRec = total > prevBest;
   const first = !(save.stars[n - 1] > 0);
-  const pt = GEAR.ptReward(n, stars, total, first, sim.stage.boss, sim.gear.ptMul);
+  const kills = sim.enemySys ? sim.enemySys.kills : 0;
+  const pt = GEAR.ptReward(n, stars, total, first, sim.stage.boss, sim.gear.ptMul) + Math.round(kills * 15 * (1 + n / 150) * sim.gear.ptMul);
   save.pt += pt;
   save.stars[n - 1] = Math.max(save.stars[n - 1] || 0, stars);
   if (newRec) save.best[n - 1] = total;
@@ -201,6 +212,7 @@ function onClear() {
       <tr><td>LASER BONUS (${sim.lasers} × 500)</td><td>${bonus.toLocaleString()}</td></tr>
       <tr class="total"><td>TOTAL</td><td>${total.toLocaleString()}</td></tr>
     </table>
+    ${kills ? `<div class="jp kills">${t('res.kills', { n: kills })}</div>` : ''}
     <div class="pt-gain">+${pt.toLocaleString()} PT${first ? '' : ` <small>${t('res.replay')}</small>`}<span>${t('res.owned', { pt: save.pt.toLocaleString() })}</span></div>
     ${newRec && prevBest > 0 ? '<div class="newrec">NEW RECORD!</div>' : ''}
     <div class="btns">
@@ -218,9 +230,9 @@ function onFail() {
   const sim = game.sim;
   openModal(`
     <h2 class="fail">SYSTEM FAILURE</h2>
-    <div class="sub fail">OUT OF LASER ENERGY</div>
+    <div class="sub fail">${sim.failReason === 'hull' ? 'HULL DESTROYED' : 'OUT OF LASER ENERGY'}</div>
     <div class="jp" style="font-size:13px;color:#cfe0f5;margin:6px 0 2px">${t('fail.left', { left: `<b style="color:#fff">${sim.targetsLeft}</b>`, total: sim.targetsTotal })}</div>
-    <div class="jp" style="font-size:11px;color:var(--dim)">${t(sim.stage.boss ? 'fail.hintBoss' : 'fail.hint')}</div>
+    <div class="jp" style="font-size:11px;color:var(--dim)">${t(sim.failReason === 'hull' ? 'fail.hintEnemy' : sim.stage.boss ? 'fail.hintBoss' : 'fail.hint')}</div>
     <div class="btns">
       <button class="neon-btn big" id="btnRetry">RETRY</button>
       <button class="neon-btn ghost" id="btnMenu">STAGES</button>
@@ -259,7 +271,7 @@ function howTo(back) {
   openModal(`
     <h2>HOW TO PLAY</h2>
     <div class="sub">${t('how.sub')}</div>
-    <ul class="help">${[1, 2, 3, 4, 5, 6].map((i) => `<li>${t('how.' + i)}</li>`).join('')}</ul>
+    <ul class="help">${[1, 2, 3, 4, 5, 6, 7].map((i) => `<li>${t('how.' + i)}</li>`).join('')}</ul>
     <div class="btns"><button class="neon-btn" id="btnHowOk">OK</button></div>`);
   $('btnHowOk').onclick = () => { A.play('ui'); closeModal(); if (back && wasPlay) back(); };
 }
@@ -290,7 +302,8 @@ function settings() {
       <button class="neon-btn ghost" id="btnHow2">HOW TO PLAY</button>
       <button class="neon-btn" id="btnSetOk">OK</button>
     </div>
-    <button class="danger-link" id="btnReset">${t('set.reset')}</button>`);
+    <button class="danger-link" id="btnReset">${t('set.reset')}</button>
+    <div class="ver">VERSION ${(document.querySelector('meta[name="lb-version"]') || {}).content || 'dev'}</div>`);
   const tog = (id, key, fn) => { $(id).onclick = () => { s[key] = !s[key]; $(id).classList.toggle('on', s[key]); if (fn) fn(s[key]); writeSave(); A.play('ui'); }; };
   tog('tSfx', 'sfx', (v) => A.setSfx(v));
   tog('tBgm', 'music', (v) => A.setMusic(v));
@@ -443,6 +456,41 @@ function processEvents() {
         }
         break;
       }
+      case 'enemyFire':
+        fx.flare(e, e.missile ? 1.2 : 0.8, 0.2, 15, false);
+        A.play('enemyFire', { missile: e.missile });
+        break;
+      case 'enemyHit':
+        fx.spark(e, 10, 14, 7, 0.4); A.play('hit');
+        break;
+      case 'enemyDown':
+        fx.spark(e, 15, 40, 12, 0.7, 0.12); fx.glows(e, 20, 14, 5, 0.6, 0.8);
+        fx.flare(e, 2.6, 0.45, 20, true); fx.ring(e, 0.2, 3, 0.5, 15, 0.08); fx.light(e, 20, 90);
+        R.addShake(0.2);
+        if (e.pts) R.pop(e, '+' + e.pts, 20, 20);
+        A.play('bomb');
+        if (!demo) vib(25);
+        break;
+      case 'projDown':
+        fx.spark(e, 25, e.missile ? 26 : 12, 7, 0.4); fx.flare(e, e.missile ? 1.6 : 0.9, 0.25, 25, true);
+        if (e.by === 'pd') fx.beamFrom(R.muzzleWorld(), e, 60);
+        A.play(e.missile ? 'destroy' : 'crack');
+        break;
+      case 'snipeCharge':
+        if (!demo) A.play('warn');
+        break;
+      case 'snipe':
+        fx.beamFrom(e, { x: R.playerPos().x, y: R.playerPos().y - 1.2, z: R.playerPos().z - 2 }, 355);
+        A.play('laser');
+        break;
+      case 'playerHit':
+        if (demo) break;
+        R.addShake(0.35 + Math.min(0.5, e.dmg / 60)); R.addGlitch(0.15);
+        { const df = $('dmgFlash'); df.className = e.dmg > 0 ? 'hurt' : 'shielded'; void df.offsetWidth; df.classList.add('go'); }
+        A.play(e.dmg > 0 ? 'hurt' : 'shield');
+        vib(e.dmg > 0 ? [50, 30, 50] : 20);
+        { const hh = $('hudHull'); hh.classList.remove('bump'); void hh.offsetWidth; hh.classList.add('bump'); }
+        break;
       case 'overload':
         R.addShake(0.25); R.addFlash(0.25, R.hsl(0, 1, 0.5));
         if (!demo) banner('', 'OVERLOAD!', '');
@@ -582,6 +630,17 @@ function updateHud() {
   const h = game.lastHud;
   if (h.lasers !== sim.lasers) { h.lasers = sim.lasers; $('hudLaserN').textContent = sim.lasers; $('hudLaser').classList.toggle('low', sim.lasers <= 3); }
   if (h.score !== sim.score) { h.score = sim.score; $('hudScore').textContent = sim.score.toLocaleString(); }
+  if (sim.enemySys) {
+    const P = sim.enemySys.player;
+    const hk = Math.round(P.hull) + '|' + Math.round(P.shield);
+    if (h.hull !== hk) {
+      h.hull = hk;
+      $('hullBar').style.width = (100 * P.hull / P.hullMax) + '%';
+      $('shieldBar').style.width = P.shieldMax ? (100 * P.shield / P.shieldMax) + '%' : '0%';
+      $('hullN').textContent = Math.ceil(P.hull);
+      $('hudHull').classList.toggle('low', P.hull / P.hullMax < 0.3);
+    }
+  }
   const done = sim.targetsTotal - sim.targetsLeft;
   if (h.done !== done) {
     h.done = done;

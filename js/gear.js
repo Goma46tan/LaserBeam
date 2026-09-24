@@ -5,6 +5,7 @@ export const SLOTS = [
   { id: 'weapon', name: 'WEAPON' },
   { id: 'core', name: 'CORE' },
   { id: 'module', name: 'MODULE' },
+  { id: 'defense', name: 'DEFENSE' },
   { id: 'color', name: 'COLOR' },
 ];
 
@@ -72,6 +73,16 @@ tiered('module', 'mRech', 'COMBO RECHARGE', (t) => D('i.rech', { n: [10, 8, 7, 6
 [1, 2, 3].forEach((t) => add({ id: `mAmp${t}`, slot: 'module', name: `SHOCK AMP ${ROMAN[t - 1]}`, d: D('i.wide', { v: pct(1 + 0.1 * t) }), stats: { blastR: 1 + 0.1 * t }, rarity: t - 1, price: [700, 2400, 6000][t - 1], req: [1, 60, 220][t - 1], icon: 'wide', hue: 185 }));
 [1, 2, 3].forEach((t) => add({ id: `mDrv${t}`, slot: 'module', name: `IMPACT DRIVER ${ROMAN[t - 1]}`, d: D('i.heavy', { v: pct(1 + 0.1 * t) }), stats: { blastK: 1 + 0.1 * t }, rarity: t - 1, price: [700, 2400, 6000][t - 1], req: [1, 60, 220][t - 1], icon: 'heavy', hue: 30 }));
 
+/* ----------------------------------------------------------- DEFENSE (20) */
+// protection against enemy fire (hull = HP of the turret, base 100)
+add({ id: 'dNone', slot: 'defense', name: 'NO DEFENSE', d: D('i.dNone'), icon: 'none', hue: 220 });
+tiered('defense', 'dHull', 'HULL PLATING', (t) => D('i.hull', { n: 20 * t }), (t) => ({ hull: 20 * t }), 0.8, 'armor', 30);
+tiered('defense', 'dShield', 'DEFLECTOR SHIELD', (t) => D('i.shield', { n: [20, 30, 40, 55, 70][t - 1], r: [4, 6, 8, 10, 14][t - 1] }),
+  (t) => ({ shield: [20, 30, 40, 55, 70][t - 1], shieldRegen: [4, 6, 8, 10, 14][t - 1] }), 1, 'shield', 185);
+tiered('defense', 'dPD', 'POINT DEFENSE', (t) => D('i.pd', { s: [7, 5.5, 4, 3, 2][t - 1] }), (t) => ({ pd: [7, 5.5, 4, 3, 2][t - 1] }), 1.2, 'pd', 60);
+[1, 2, 3].forEach((t) => add({ id: `dRep${t}`, slot: 'defense', name: `NANO REPAIR ${ROMAN[t - 1]}`, d: D('i.repair', { n: t }), stats: { repair: t }, rarity: t, price: [1500, 5000, 12000][t - 1], req: [20, 150, 350][t - 1], icon: 'recharge', hue: 140 }));
+add({ id: 'dAegis', slot: 'defense', name: 'AEGIS SYSTEM', d: D('i.aegis'), stats: { hull: 60, shield: 50, shieldRegen: 10, reduce: 0.2 }, rarity: 4, price: 28000, req: 650, icon: 'shield', hue: 48 });
+
 /* ------------------------------------------------------------- COLOR (24) */
 add({ id: 'kSector', slot: 'color', name: 'SECTOR COLOR', d: D('i.sector'), icon: 'color', beam: { mode: 'sector' } });
 [['CYAN', 188], ['AZURE', 205], ['BLUE', 228], ['VIOLET', 265], ['MAGENTA', 300], ['PINK', 325], ['CRIMSON', 352], ['ORANGE', 25], ['GOLD', 46], ['LIME', 90], ['EMERALD', 140], ['TEAL', 170]]
@@ -96,18 +107,19 @@ export function itemDesc(it) { return it.d.map(([k, p]) => tr(k, p)).join(''); }
 
 export const CATALOG = items;
 export const BY_ID = Object.fromEntries(items.map((i) => [i.id, i]));
-export const DEFAULT_EQUIP = { weapon: 'wStd', core: 'cBasic', module: 'mNone', color: 'kSector' };
+export const DEFAULT_EQUIP = { weapon: 'wStd', core: 'cBasic', module: 'mNone', defense: 'dNone', color: 'kSector' };
 export const FREE = items.filter((i) => i.price === 0).map((i) => i.id);
 
 // combine the equipped items into the stat block the simulation understands
 export function computeGear(equip) {
-  const g = { blastR: 1, blastK: 1, pierce: 1, dmg: 1, armorDmg: 0, splitN: 0, splitK: 0.6, splitDmg: 0, extra: 0, starBonus: 0, chain: 1, overload: 0, recharge: 0, ptMul: 1 };
-  for (const slot of ['weapon', 'core', 'module']) {
+  const g = { blastR: 1, blastK: 1, pierce: 1, dmg: 1, armorDmg: 0, splitN: 0, splitK: 0.6, splitDmg: 0, extra: 0, starBonus: 0, chain: 1, overload: 0, recharge: 0, ptMul: 1,
+    hull: 0, shield: 0, shieldRegen: 0, pd: 0, repair: 0, reduce: 0 };
+  for (const slot of ['weapon', 'core', 'module', 'defense']) {
     const it = BY_ID[equip[slot]];
     if (!it) continue;
     for (const [k, v] of Object.entries(it.stats)) {
       if (['blastR', 'blastK', 'pierce', 'chain', 'ptMul'].includes(k)) g[k] *= v;
-      else if (['extra', 'starBonus', 'armorDmg'].includes(k)) g[k] += v;
+      else if (['extra', 'starBonus', 'armorDmg', 'hull', 'shield', 'shieldRegen', 'repair', 'reduce'].includes(k)) g[k] += v;
       else g[k] = v;
     }
   }

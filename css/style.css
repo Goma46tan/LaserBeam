@@ -295,8 +295,8 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .lo-k { font-size: 8px; letter-spacing: 2px; color: var(--dim); }
 .lo-v { font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lo-slot > div:last-child { min-width: 0; }
-.shop-tabs { display: flex; gap: 6px; padding: 8px 14px; }
-.st-tab { flex: 1; padding: 8px 4px 6px; border-radius: 9px; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: 1.5px solid rgba(255,255,255,0.14); color: var(--dim); }
+.shop-tabs { display: flex; gap: 4px; padding: 8px 12px; }
+.st-tab { flex: 1 1 0; min-width: 0; padding: 8px 2px 6px; border-radius: 9px; font-size: clamp(8px, 2.6vw, 11px); font-weight: 700; letter-spacing: 0; border: 1.5px solid rgba(255,255,255,0.14); color: var(--dim); }
 .st-tab small { display: block; font-size: 9px; font-weight: 500; margin-top: 2px; opacity: 0.8; }
 .st-tab.active { color: #fff; border-color: var(--neon); background: hsla(var(--hue), 100%, 50%, 0.18); text-shadow: 0 0 6px var(--neon); }
 .shop-list { flex: 1; overflow-y: auto; padding: 4px 14px calc(20px + var(--safe-bot)); display: flex; flex-direction: column; gap: 8px; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
@@ -342,3 +342,21 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .lang-opt { padding: 12px 6px; border-radius: 10px; font-family: var(--jp); font-size: 15px; border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); color: #dce9ff; }
 .lang-opt.on { border-color: var(--neon); color: #fff; background: hsla(var(--hue), 100%, 50%, 0.22); box-shadow: 0 0 12px var(--neon-soft); }
 #scrTitle { position: absolute; }
+
+/* ------------------------------------------------------------- enemies/HULL */
+.hud-hull { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.hud-hull .lbl { font-size: 9px; letter-spacing: 2px; color: #ff9aa8; min-width: 32px; }
+.hud-hull .bar { position: relative; flex: 1; height: 8px; border-radius: 4px; background: rgba(255,60,90,0.15); overflow: hidden; border: 1px solid rgba(255,90,120,0.35); }
+#hullBar { position: absolute; inset: 0 auto 0 0; width: 100%; background: linear-gradient(90deg, #ff3b5c, #ffb14a); box-shadow: 0 0 8px #ff3b5c; transition: width 0.2s; }
+#shieldBar { position: absolute; inset: 0 auto 0 0; width: 0; background: rgba(90,230,255,0.75); box-shadow: 0 0 8px #5ae6ff; transition: width 0.2s; }
+#hullN { font-size: 12px; font-weight: 700; min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; color: #ffd0d8; }
+.hud-hull.low .lbl, .hud-hull.low #hullN { color: #ff4060; animation: blink 0.3s infinite alternate; }
+.hud-hull.bump { animation: bump 0.4s ease-out; }
+#dmgFlash { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+#dmgFlash.hurt { background: radial-gradient(ellipse at 50% 60%, rgba(255,0,40,0) 40%, rgba(255,0,40,0.55) 100%); }
+#dmgFlash.shielded { background: radial-gradient(ellipse at 50% 70%, rgba(80,220,255,0) 45%, rgba(80,220,255,0.45) 100%); }
+#dmgFlash.go { animation: dmgFade 0.6s ease-out forwards; }
+@keyframes dmgFade { 0% { opacity: 1; } 100% { opacity: 0; } }
+.kills { margin-top: 8px; font-size: 12px; color: #ffb0bc; }
+
+.ver { margin-top: 10px; font-size: 9px; letter-spacing: 2px; color: var(--dim); opacity: 0.7; }

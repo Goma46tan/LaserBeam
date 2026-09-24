@@ -717,6 +717,7 @@ R.clearFx = function () {
 /* ---------------------------------------------------------------- fx API */
 const V3 = (p) => new THREE.Vector3(p.x, p.y, p.z);
 R.fx = {
+  beamFrom(from, to, hue, w) { spawnBeam(V3(from), V3(to), hsl(hue, 1, 0.6)); },
   beam(to, hue, sat) { const c = hsl(hue, sat === undefined ? 1 : sat, sat === 0 ? 0.85 : 0.6); spawnBeam(R.muzzleWorld(), V3(to), c); R.recoil = 1; spawnFlare(R.muzzleWorld(), 0.5, 0.16, c); },
   spark(p, hue, n, speed, life, size) {
     const c = hsl(hue, 1, 0.65);
@@ -856,7 +857,7 @@ R.update = function (dt, simT) {
   // environment animation
   grid.material.uniforms.uT.value = R.t;
   sun.material.uniforms.uT.value = R.t;
-  updateParticles(dt); updateShards(dt); updateRingsFlares(dt); updateBeams(dt); updatePops(dt);
+  updateParticles(dt); updateShards(dt); updateRingsFlares(dt); updateBeams(dt); updatePops(dt); updateEnemies(dt);
   if (!sim) return;
   // sync meshes
   const intro = R.introT;
@@ -943,6 +944,120 @@ R.iconCanvas = function (type, shape, size) {
   else g.fillRect(-s * 0.08, -s * 0.08, s * 0.16, s * 0.16);
   return c;
 };
+
+/* ================================================================ enemies */
+const enemyGroup = new THREE.Group();
+let esys = null;
+const enemyMeshes = new Map();   // enemy -> group
+const projMeshes = new Map();    // projectile -> mesh
+const aimLines = new Map();      // sniper id -> line
+let enemyMats = null;
+function eMats() {
+  if (enemyMats) return enemyMats;
+  enemyMats = {
+    hull: new THREE.MeshStandardMaterial({ color: 0x1b1d26, metalness: 0.85, roughness: 0.3 }),
+    red: new THREE.MeshStandardMaterial({ color: 0x300008, emissive: 0xff2244, emissiveIntensity: 1.8, metalness: 0.4, roughness: 0.4 }),
+    orange: new THREE.MeshStandardMaterial({ color: 0x301000, emissive: 0xff7a20, emissiveIntensity: 2.2 }),
+    bolt: new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.6, 0.35) }),
+    missile: new THREE.MeshStandardMaterial({ color: 0x2a2a30, emissive: 0xff3010, emissiveIntensity: 0.8, metalness: 0.7, roughness: 0.3 }),
+  };
+  return enemyMats;
+}
+function buildEnemy(type) {
+  const m = eMats();
+  const g = new THREE.Group();
+  const add = (geo, mat, x, y, z, rx, ry, rz) => { const o = new THREE.Mesh(geo, mat); o.position.set(x || 0, y || 0, z || 0); o.rotation.set(rx || 0, ry || 0, rz || 0); o.castShadow = true; g.add(o); return o; };
+  if (type === 'scout') {
+    add(new THREE.OctahedronGeometry(0.34), m.red);
+    const ring = add(new THREE.TorusGeometry(0.52, 0.045, 8, 32), m.orange, 0, 0, 0, Math.PI / 2);
+    g.userData.spin = ring;
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.3, 0.06, 0.12), m.hull, s * 0.62, 0, 0);
+  } else if (type === 'gunship') {
+    add(new THREE.BoxGeometry(1.1, 0.26, 0.7), m.hull);
+    add(new THREE.SphereGeometry(0.2, 16, 10), m.red, 0, 0.12, 0.25);
+    for (const s of [-1, 1]) {
+      add(new THREE.BoxGeometry(0.55, 0.06, 0.45), m.hull, s * 0.78, -0.02, -0.05, 0, 0, s * 0.15);
+      add(new THREE.CylinderGeometry(0.1, 0.12, 0.3, 10), m.orange, s * 0.45, -0.05, -0.38, Math.PI / 2);
+      add(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6), m.hull, s * 0.3, -0.12, 0.45, Math.PI / 2);
+    }
+  } else if (type === 'bomber') {
+    add(new THREE.CapsuleGeometry(0.34, 0.9, 6, 14), m.hull, 0, 0, 0, 0, 0, Math.PI / 2);
+    for (const x of [-0.35, 0, 0.35]) add(new THREE.TorusGeometry(0.35, 0.03, 6, 24), m.red, x, 0, 0, 0, Math.PI / 2);
+    add(new THREE.BoxGeometry(0.5, 0.12, 0.35), m.orange, 0, -0.33, 0.05);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.2, 0.5, 0.06), m.hull, s * 0.72, 0.18, -0.1);
+  } else {
+    add(new THREE.ConeGeometry(0.28, 1.1, 8), m.hull, 0, 0, 0, Math.PI / 2);
+    const eye = add(new THREE.SphereGeometry(0.17, 16, 10), m.red, 0, 0, 0.5);
+    g.userData.eye = eye;
+    const ring = add(new THREE.TorusGeometry(0.42, 0.035, 6, 28), m.orange, 0, 0, 0.05);
+    g.userData.spin2 = ring;
+  }
+  g.userData.hitMat = null;
+  return g;
+}
+R.setEnemies = function (sys) {
+  esys = sys;
+  for (const g of enemyMeshes.values()) enemyGroup.remove(g);
+  for (const m of projMeshes.values()) enemyGroup.remove(m);
+  for (const l of aimLines.values()) { enemyGroup.remove(l); l.material.dispose(); l.geometry.dispose(); }
+  enemyMeshes.clear(); projMeshes.clear(); aimLines.clear();
+  if (!enemyGroup.parent) scene.add(enemyGroup);
+  if (!sys) return;
+  for (const e of sys.enemies) { const g = buildEnemy(e.type); g.position.set(e.pos.x, e.pos.y, e.pos.z); enemyGroup.add(g); enemyMeshes.set(e, g); }
+};
+R.playerPos = () => ({ x: camBase.pos.x, y: camBase.pos.y, z: camBase.pos.z });
+const boltGeo = new THREE.SphereGeometry(0.16, 12, 8), missileGeo = new THREE.ConeGeometry(0.16, 0.6, 10).rotateX(Math.PI / 2);
+function updateEnemies(dt) {
+  if (!esys) return;
+  const m = eMats();
+  for (const [e, g] of enemyMeshes) {
+    if (!e.alive) { g.visible = false; continue; }
+    g.position.set(e.pos.x, e.pos.y, e.pos.z);
+    g.lookAt(camera.position);
+    g.rotateZ(Math.sin(R.t * 2 + e.id) * 0.15);
+    if (g.userData.spin) g.userData.spin.rotation.z += dt * 4;
+    if (g.userData.spin2) g.userData.spin2.rotation.z -= dt * 3;
+    const flash = esys.sim.t - e.hitT < 0.12;
+    const charging = e.state === 'charge';
+    const warn = !charging && e.fireT < 0.6 && e.burstLeft === 0;
+    g.traverse((o) => { if (o.material === m.red || o.userData.baseMat === m.red) { o.userData.baseMat = m.red; o.material = flash ? m.bolt : m.red; } });
+    const s = 1 + (warn ? 0.12 * Math.sin(R.t * 40) : 0);
+    g.scale.setScalar(s);
+    // sniper aim line
+    let line = aimLines.get(e.id);
+    if (charging) {
+      if (!line) {
+        line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: new THREE.Color(3, 0.2, 0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+        line.frustumCulled = false; enemyGroup.add(line); aimLines.set(e.id, line);
+      }
+      const pp = esys.player.pos;
+      const arr = line.geometry.attributes.position.array;
+      arr[0] = e.pos.x; arr[1] = e.pos.y; arr[2] = e.pos.z;
+      arr[3] = pp.x; arr[4] = pp.y - 1.2; arr[5] = pp.z - 2;
+      line.geometry.attributes.position.needsUpdate = true;
+      const k = 1 - e.chargeT / e.T.charge;
+      line.material.opacity = 0.3 + 0.7 * k * (0.6 + 0.4 * Math.sin(R.t * (20 + k * 40)));
+      line.visible = true;
+      if (g.userData.eye) g.userData.eye.scale.setScalar(1 + k * 0.8);
+    } else if (line) line.visible = false;
+  }
+  const seen = new Set();
+  for (const p of esys.proj) {
+    seen.add(p);
+    let mesh = projMeshes.get(p);
+    if (!mesh) {
+      mesh = new THREE.Mesh(p.missile ? missileGeo : boltGeo, p.missile ? m.missile : m.bolt);
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(3, 0.7, 0.3), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      glow.scale.setScalar(p.missile ? 1.3 : 0.9); mesh.add(glow);
+      enemyGroup.add(mesh); projMeshes.set(p, mesh);
+    }
+    mesh.position.set(p.pos.x, p.pos.y, p.pos.z);
+    if (p.missile) mesh.lookAt(mesh.position.x + p.vel.x, mesh.position.y + p.vel.y, mesh.position.z + p.vel.z);
+    // trail
+    if (Math.random() < (p.missile ? 0.9 : 0.5)) P(p.pos.x, p.pos.y, p.pos.z, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, hsl(p.missile ? 15 : 25, 1, 0.55), p.missile ? 0.35 : 0.2, 0.35, 0, 1, 0);
+  }
+  for (const [p, mesh] of projMeshes) if (!seen.has(p)) { enemyGroup.remove(mesh); mesh.children.forEach((c) => c.material.dispose()); projMeshes.delete(p); }
+}
 
 R.renderer = () => renderer;
 R.camera = () => camera;

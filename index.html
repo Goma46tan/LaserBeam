@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="lb-version" content="2026.0924-47c98e">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=e464348f">
 </head>
 <body>
 <div id="app">
@@ -39,8 +40,14 @@
       <div class="bar"><div id="hudBar"></div></div>
       <span id="hudTargets">0 / 0</span>
     </div>
+    <div id="hudHull" class="hud-hull hidden">
+      <span class="lbl">HULL</span>
+      <div class="bar"><div id="hullBar"></div><div id="shieldBar"></div></div>
+      <span id="hullN">100</span>
+    </div>
   </div>
 
+  <div id="dmgFlash"></div>
   <div id="pops"></div>
   <div id="reticle"><i></i><i></i><i></i><i></i></div>
   <div id="banner" class="banner"></div>
@@ -96,8 +103,33 @@
   </div>
 </div>
 
-<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js" } }</script>
-<script src="js/audio.js"></script>
-<script type="module" src="js/main3d.js"></script>
+<script type="importmap">{
+ "imports": {
+  "./js/audio.js": "./js/audio.js?v=66c1fbe4",
+  "./js/budget3d.js": "./js/budget3d.js?v=11af5cdd",
+  "./js/core3d.js": "./js/core3d.js?v=74d51907",
+  "./js/enemies.js": "./js/enemies.js?v=84c75c04",
+  "./js/gear.js": "./js/gear.js?v=590f27b9",
+  "./js/i18n.js": "./js/i18n.js?v=2d4d84a5",
+  "./js/main3d.js": "./js/main3d.js?v=acca5008",
+  "./js/render3d.js": "./js/render3d.js?v=95f0d7ef",
+  "./js/shop.js": "./js/shop.js?v=dbe81916",
+  "./lib/addons/postprocessing/EffectComposer.js": "./lib/addons/postprocessing/EffectComposer.js?v=eccf8177",
+  "./lib/addons/postprocessing/MaskPass.js": "./lib/addons/postprocessing/MaskPass.js?v=10b721db",
+  "./lib/addons/postprocessing/OutputPass.js": "./lib/addons/postprocessing/OutputPass.js?v=8ca54f44",
+  "./lib/addons/postprocessing/Pass.js": "./lib/addons/postprocessing/Pass.js?v=a5ec37ce",
+  "./lib/addons/postprocessing/RenderPass.js": "./lib/addons/postprocessing/RenderPass.js?v=89aaff34",
+  "./lib/addons/postprocessing/ShaderPass.js": "./lib/addons/postprocessing/ShaderPass.js?v=f145da64",
+  "./lib/addons/postprocessing/UnrealBloomPass.js": "./lib/addons/postprocessing/UnrealBloomPass.js?v=a60d7378",
+  "./lib/addons/shaders/CopyShader.js": "./lib/addons/shaders/CopyShader.js?v=6088e45f",
+  "./lib/addons/shaders/LuminosityHighPassShader.js": "./lib/addons/shaders/LuminosityHighPassShader.js?v=05b8a6dd",
+  "./lib/addons/shaders/OutputShader.js": "./lib/addons/shaders/OutputShader.js?v=251fcfe4",
+  "./lib/cannon-es.js": "./lib/cannon-es.js?v=3248d4f4",
+  "./lib/three.module.min.js": "./lib/three.module.min.js?v=4d8e72af",
+  "three": "./lib/three.module.min.js?v=4d8e72af"
+ }
+}</script>
+<script src="js/audio.js?v=66c1fbe4"></script>
+<script type="module" src="js/main3d.js?v=acca5008"></script>
 </body>
 </html>

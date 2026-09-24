@@ -20,6 +20,8 @@ const ICON = {
   over: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" fill="currentColor"/>',
   recharge: '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 3v5h-5" stroke-width="2"/><path d="M12 8v8M8 12h8"/>',
   none: '<circle cx="12" cy="12" r="8" opacity=".5"/><path d="M8 12h8"/>',
+  shield: '<path d="M4 13a8 8 0 0 1 16 0" stroke-width="2.4"/><path d="M7 13a5 5 0 0 1 10 0" opacity=".6"/><path d="M12 16v5M9 21h6"/>',
+  pd: '<circle cx="12" cy="15" r="4"/><path d="M12 11l5-8M15 3h4v4"/><circle cx="19" cy="3" r="1.5" fill="currentColor"/>',
   color: '<circle cx="12" cy="12" r="8" fill="currentColor"/><circle cx="9" cy="9" r="2.5" fill="#fff" opacity=".7"/>',
 };
 
