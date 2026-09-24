@@ -120,7 +120,7 @@ function startStage(n) {
   R.setStage(game.sim);
   game.lastHud = {};
   $('hudStage').textContent = 'STAGE ' + n;
-  $('hudSector').textContent = `SECTOR ${String(st.sector + 1).padStart(2, '0')} // ${st.sectorName}`;
+  $('hudSector').textContent = `Lv.${C.difficultyLevel(n)} // ${st.sectorName}`;
   A.startMusic(st.boss ? 90 + (st.bossKind === 'omega' ? 1 : 0) : st.sector, st.boss ? 1.5 : 1);
   A.play('start');
   if (st.intro && !save.seen[st.intro]) {
@@ -128,9 +128,15 @@ function startStage(n) {
     showIntro(st.intro, () => { save.seen[st.intro] = 1; writeSave(); game.paused = false; R.introT = 0; stageBanner(st); });
   } else stageBanner(st);
 }
+function diffMeter(n) {
+  const lv = C.difficultyLevel(n);
+  let bars = '';
+  for (let i = 1; i <= 10; i++) bars += `<i class="${i <= lv ? 'on' : ''}" style="--lv:${i}"></i>`;
+  return `<span class="diff">DIFFICULTY <span class="bars">${bars}</span> Lv.${lv}</span>`;
+}
 function stageBanner(st) {
-  if (st.boss) banner(st.bossKind === 'omega' ? '⚠ SECTOR BOSS ⚠' : '⚠ WARNING ⚠', st.bossName, 'STAGE ' + st.n, true);
-  else banner(`SECTOR ${String(st.sector + 1).padStart(2, '0')} ─ ${st.sectorName}`, 'STAGE ' + st.n, `LASER × ${st.lasers}`);
+  if (st.boss) banner(st.bossKind === 'omega' ? '⚠ SECTOR BOSS ⚠' : '⚠ WARNING ⚠', st.bossName, `STAGE ${st.n}<br>${diffMeter(st.n)}`, true);
+  else banner(`SECTOR ${String(st.sector + 1).padStart(2, '0')} ─ ${st.sectorName}`, 'STAGE ' + st.n, `LASER × ${st.lasers}<br>${diffMeter(st.n)}`);
 }
 function showIntro(key, done) {
   const gm = C.GIMMICKS[key];

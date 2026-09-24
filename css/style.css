@@ -72,7 +72,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 }
 .banner.show { animation: bannerIn 1.9s ease-out forwards; }
 .banner .b1 { font-size: 13px; letter-spacing: 6px; color: var(--neon); text-shadow: 0 0 8px var(--neon); }
-.banner .b2 { font-size: 46px; font-weight: 900; letter-spacing: 3px; text-shadow: 0 0 20px var(--neon), 0 0 40px var(--neon); }
+.banner .b2 { white-space: nowrap; font-size: clamp(28px, 11vw, 46px); font-weight: 900; letter-spacing: 3px; text-shadow: 0 0 20px var(--neon), 0 0 40px var(--neon); }
 .banner .b3 { font-size: 12px; letter-spacing: 4px; color: var(--dim); margin-top: 4px; }
 .banner.warn .b2 { color: #ffd0d8; text-shadow: 0 0 20px var(--danger), 0 0 40px var(--danger); }
 .banner.warn .b1 { color: var(--danger); text-shadow: 0 0 8px var(--danger); animation: blink 0.25s infinite alternate; }
@@ -277,3 +277,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 #reticle i:nth-child(4) { top: 35px; right: 0; height: 2px; width: 12px; }
 @keyframes retspin { to { transform: rotate(360deg); } }
 .nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 30px; text-align: center; background: #05020f; color: #fff; z-index: 99; }
+
+/* difficulty meter in the stage banner */
+.diff { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; letter-spacing: 2px; color: #fff; }
+.diff .bars { display: inline-flex; gap: 2px; }
+.diff .bars i { width: 6px; height: 10px; border-radius: 1px; background: rgba(255,255,255,0.15); }
+.diff .bars i.on { background: hsl(calc(130 - var(--lv) * 13), 100%, 55%); box-shadow: 0 0 6px hsl(calc(130 - var(--lv) * 13), 100%, 55%); }

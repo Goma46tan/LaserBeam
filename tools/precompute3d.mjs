@@ -86,10 +86,12 @@ function botRun(stage, seed) {
   return { shots: sim.shots, targets: sim.targetsTotal };
 }
 
-// generous early on, tighter later
+// generous early on, then tighter and tighter: by stage 1000 you get barely more than the bot needed
 function budgetFor(n, shots) {
-  const f = Math.min(1, (n - 1) / 600);
-  return Math.min(60, Math.ceil(shots * (1.4 - 0.28 * f)) + (n <= 30 ? 3 : 2));
+  const t = C.difficulty(n);
+  const mult = 1.55 - 0.5 * t;
+  const extra = n <= 20 ? 3 : n <= 150 ? 2 : n <= 600 ? 1 : 0;
+  return Math.min(60, Math.ceil(shots * mult) + extra);
 }
 
 function runRange(a, b, log) {

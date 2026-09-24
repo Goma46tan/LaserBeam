@@ -9,6 +9,10 @@ const MAX_H = 8.6;                  // tallest a structure may stand above its p
 const SIDE = 5.2;                   // |x| limit for layouts (portrait screens)
 
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+// 0 at stage 1 -> 1 at stage 1000
+export function difficulty(n) { return Math.pow(clamp((n - 1) / 999, 0, 1), 0.85); }
+// 1..10 for display
+export function difficultyLevel(n) { return clamp(1 + Math.floor(difficulty(n) * 9.6 + (n % 10 === 0 ? 0.6 : 0)), 1, 10); }
 const ramp = (t) => { const x = clamp(t / 2, 0, 1); return x * x * (3 - 2 * x); };
 
 /* ------------------------------------------------------------------ RNG */
@@ -359,7 +363,7 @@ class Builder {
   constructor(n, variant) {
     this.n = n;
     this.r = makeRng(hash(n * 1009 + variant * 7919 + 77));
-    this.d = clamp((n - 1) / 450, 0, 1);
+    this.d = difficulty(n);
     this.pedestals = []; this.blocks = []; this.orbits = []; this.spinners = [];
     this.tethers = []; this.shields = []; this.occ = []; this.sites = [];
   }
@@ -494,14 +498,14 @@ export function generate(n, variant) {
   for (const k of GIMMICK_ORDER) {
     if (k.startsWith('boss') || GIMMICKS[k].n >= n) continue;
     let p;
-    if (typeish.includes(k)) p = (k === 'star' ? 0.55 : 0.2) + 0.25 * d;
-    else if (air.includes(k)) p = 0.13 + 0.15 * d;
-    else if (k === 'turntable') p = 0.38;
-    else if (plat.includes(k)) p = 0.09 + 0.07 * d;
+    if (typeish.includes(k)) p = k === 'star' ? 0.6 - 0.25 * d : 0.15 + 0.4 * d;
+    else if (air.includes(k)) p = 0.1 + 0.3 * d;
+    else if (k === 'turntable') p = 0.3 + 0.2 * d;
+    else if (plat.includes(k)) p = 0.07 + 0.15 * d;
     else p = 0.07;
     if (r.chance(p)) feats.add(k);
   }
-  const maxAir = boss ? 1 : 1 + Math.floor(d * 2.2);
+  const maxAir = boss ? 1 : 1 + Math.floor(d * 2.6);
   let airList = air.filter((k) => feats.has(k));
   while (airList.length > maxAir) {
     const k = r.pick(airList.filter((q) => q !== intro)); feats.delete(k); airList = air.filter((q) => feats.has(q));
@@ -628,7 +632,7 @@ export function generate(n, variant) {
   /* ---- platform modifiers ---- */
   const main = B.pedestals.filter((p) => p.w > 1.3);
   if (spin) {
-    for (const p of B.pedestals) if (p.round) p.spin = { w: r.range(0.35, 0.6 + d * 0.5) * (r.chance(0.5) ? 1 : -1) };
+    for (const p of B.pedestals) if (p.round) p.spin = { w: r.range(0.3 + d * 0.35, 0.5 + d * 0.7) * (r.chance(0.5) ? 1 : -1) };
     if (!B.pedestals.some((p) => p.spin) && main.length) { const p = main[0]; p.round = true; p.spin = { w: r.range(0.35, 0.8) }; }
   }
   if ((feats.has('moving') || feats.has('elevator')) && main.length) {
@@ -664,7 +668,7 @@ export function generate(n, variant) {
     for (const o of B.sites) if (o !== s && Math.abs((o.bounds.x0 + o.bounds.x1) / 2 - cx) < R + 0.8) ok = false;
     if (ok) {
       const cnt = clamp(Math.floor((2 * Math.PI * R) / 1.7), 4, 10);
-      const speed = r.range(0.45, 0.8 + d * 0.4) * (r.chance(0.5) ? 1 : -1);
+      const speed = r.range(0.4 + d * 0.3, 0.7 + d * 0.6) * (r.chance(0.5) ? 1 : -1);
       const items = [];
       for (let i = 0; i < cnt; i++) items.push({ a: (i / cnt) * Math.PI * 2, r: R, w: 0.85, h: 0.85, d: 0.85, type: 'normal' });
       B.orbits.push({ cx, cy, cz, speed, items, horizontal: true });
@@ -762,8 +766,8 @@ export function generate(n, variant) {
   }
   if (feats.has('bomb')) for (const b of take(intro === 'bomb' ? 1 : r.int(1, 2), isCube)) b.type = 'bomb';
   if (feats.has('armor')) {
-    const frac = intro === 'armor' ? 0.3 : r.range(0.12, 0.25 + d * 0.2);
-    for (const b of take(Math.max(1, Math.round(structural.length * frac)))) { b.type = 'armor'; b.hp = d > 0.55 && r.chance(0.5) ? 3 : 2; }
+    const frac = intro === 'armor' ? 0.3 : r.range(0.08 + d * 0.15, 0.2 + d * 0.3);
+    for (const b of take(Math.max(1, Math.round(structural.length * frac)))) { b.type = 'armor'; b.hp = r.chance(d * 0.7) ? 3 : 2; }
   }
   if (feats.has('crystal')) {
     const frac = intro === 'crystal' ? 0.45 : r.range(0.15, 0.35);
