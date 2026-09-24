@@ -199,6 +199,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .stage-tile.boss { border-color: var(--danger); background: linear-gradient(160deg, rgba(255,40,80,0.35), rgba(60,0,20,0.6)); }
 .stage-tile .tag { position: absolute; top: -6px; right: -4px; font-size: 7px; font-weight: 900; padding: 2px 4px; border-radius: 4px; background: var(--gold); color: #1a1000; letter-spacing: 1px; }
 .stage-tile.boss .tag { background: var(--danger); color: #fff; }
+.stage-tile.boss:nth-child(10n) { box-shadow: 0 0 12px rgba(255,40,80,0.5) inset; }
 .stage-tile:active:not(.locked) { transform: scale(0.93); }
 
 /* ---------------------------------------------------------------- modal */

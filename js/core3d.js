@@ -59,18 +59,36 @@ export const GIMMICKS = {
   moving:    { n: 17, name: 'SLIDE PLATFORM',   desc: '左右にスライドする台座。' },
   orbit:     { n: 21, name: 'ORBIT BLOCKS',     desc: '構造物のまわりを周回するブロック。撃つと軌道から外れて落下する。' },
   rotor:     { n: 26, name: 'ROTOR',            desc: '十字に組まれて回転するブロック群。' },
-  steel:     { n: 30, name: 'STEEL',            desc: '破壊できない重い鉄塊。クリア対象外だが邪魔をする。' },
+  steel:     { n: 31, name: 'STEEL',            desc: '破壊できない重い鉄塊。クリア対象外だが邪魔をする。' },
   spinner:   { n: 34, name: 'SPIN BAR',         desc: '回転する鉄のバー。レーザーを遮る。隙間を狙え。' },
   tether:    { n: 38, name: 'TETHER',           desc: '吊るされたブロック。光るワイヤーを撃てば切断できる。' },
   float:     { n: 42, name: 'HOVER BLOCK',      desc: '浮遊ブロック。撃つと推進装置が停止して落下する。' },
   rock:      { n: 46, name: 'ROCKING PLATFORM', desc: 'ゆっくり傾く台座。揺れを利用して落とせ。' },
-  boss:      { n: 50, name: 'CORE GUARDIAN',    desc: '巨大コア出現！周回する装甲の隙間からコアを撃ち抜け。' },
   shield:    { n: 55, name: 'SHIELD DOME',      desc: 'シールド内はレーザー無効。外のジェネレーターを破壊せよ。' },
-  crystal:   { n: 60, name: 'CRYSTAL',          desc: '衝撃に弱いクリスタル。何かにぶつけるだけで砕ける。' },
+  crystal:   { n: 61, name: 'CRYSTAL',          desc: '衝撃に弱いクリスタル。何かにぶつけるだけで砕ける。' },
   phase:     { n: 65, name: 'PHASE BLOCK',      desc: '実体化と透過を繰り返す。透過中はレーザーが効かない。' },
-  lowgrav:   { n: 70, name: 'LOW GRAVITY',      desc: '低重力エリア。ブロックがふわりと遠くまで飛ぶ。' },
+  lowgrav:   { n: 71, name: 'LOW GRAVITY',      desc: '低重力エリア。ブロックがふわりと遠くまで飛ぶ。' },
   elevator:  { n: 75, name: 'ELEVATOR',         desc: '上下に動く台座。' },
+  // boss stages (every 10th stage); each type is introduced the first time it appears
+  bossGuardian: { n: 10, name: 'BOSS: CORE GUARDIAN', desc: '10ステージごとにボス出現！周回する装甲の隙間から浮遊コアを撃ち抜け。コアとすべてのブロックを倒せばクリア。' },
+  bossTwin:     { n: 20, name: 'BOSS: TWIN CORES',    desc: '左右2つのコア。それぞれの装甲をかいくぐり、両方とも破壊せよ。' },
+  bossFortress: { n: 30, name: 'BOSS: FORTRESS',      desc: '回転する城壁の中にコアが潜む。壁を崩すか、隙間が正面に来た瞬間に撃ち抜け。' },
+  bossShield:   { n: 40, name: 'BOSS: SHIELD CORE',   desc: 'コアはシールドに守られている。先にジェネレーターを破壊してからコアを撃て。' },
+  bossOmega:    { n: 50, name: 'BOSS: OMEGA CORE',    desc: '50ステージごとの大ボス。二重の装甲リングに守られた巨大コアを破壊せよ。' },
 };
+export const BOSSES = {
+  guardian: { key: 'bossGuardian', name: 'CORE GUARDIAN' },
+  twin: { key: 'bossTwin', name: 'TWIN CORES' },
+  fortress: { key: 'bossFortress', name: 'FORTRESS' },
+  shield: { key: 'bossShield', name: 'SHIELD CORE' },
+  omega: { key: 'bossOmega', name: 'OMEGA CORE' },
+};
+export const isBoss = (n) => n % 10 === 0;
+export function bossKind(n) {
+  if (n % 50 === 0) return 'omega';
+  if (n <= 40) return ['guardian', 'twin', 'fortress', 'shield'][n / 10 - 1];
+  return ['guardian', 'twin', 'fortress', 'shield'][hash(n * 31 + 7) % 4];
+}
 const GIMMICK_ORDER = Object.keys(GIMMICKS);
 export function introAt(n) {
   for (const k of GIMMICK_ORDER) if (GIMMICKS[k].n === n) return k;
@@ -407,11 +425,64 @@ class Builder {
   }
 }
 
+// core HP grows slowly through the game
+function bossHp(n, kind) {
+  const base = clamp(3 + Math.floor(n / 90), 3, 10);
+  if (kind === 'omega') return Math.min(14, base + 3);
+  if (kind === 'twin') return Math.max(2, Math.round(base * 0.6));
+  return base;
+}
+function addCore(B, x, y, z, size, hp) {
+  B.blocks.push({ x, y, z, w: size, h: size, d: size, shape: 'core', type: 'core', hp, kin: { mode: 'hover', hx: x, hy: y, hz: z, amp: 0.2, ph: B.r.range(0, 6) } });
+}
+// steel plates orbiting a point: in a vertical plane facing the camera, or horizontally around it
+function armorRing(B, cx, cy, cz, R, segs, speed, horizontal, plateH) {
+  const items = [];
+  for (let i = 0; i < segs; i++) items.push({ a: (i / segs) * Math.PI * 2, r: R, w: 0.3, h: plateH, d: 1.3, type: 'steel' });
+  B.orbits.push({ cx, cy, cz, speed, items, steel: true, horizontal, tilt: horizontal ? 0 : B.r.range(-0.25, 0.25) });
+}
+function addBoss(B, kind, n, topY) {
+  const r = B.r, d = B.d;
+  const hp = bossHp(n, kind);
+  const dir = () => (r.chance(0.5) ? 1 : -1);
+  if (kind === 'fortress') { addCore(B, 0, B.fortressCore.y, 0, 1.3, hp); return; }
+  if (kind === 'twin') {
+    const cy = Math.max(topY + 2.1, 5.2), x = 2.2;
+    for (const sx of [-1, 1]) {
+      addCore(B, sx * x, cy, 0, 1.3, hp);
+      armorRing(B, sx * x, cy, 0, 1.45, r.int(2, 3 + Math.round(d)), r.range(0.7, 1.1) * dir() * (1 + d * 0.4), false, 1 + d * 0.4);
+    }
+    B.occ.push({ x0: -x - 2.2, x1: x + 2.2, y0: cy - 1.8, y1: cy + 1.8 });
+    return;
+  }
+  const big = kind === 'omega';
+  const cy = Math.max(topY + (big ? 2.9 : 2.4), big ? 6 : 5.4);
+  addCore(B, 0, cy, 0, big ? 2.3 : 1.8, hp);
+  const R = big ? 2.5 : 2.1;
+  if (kind === 'shield') {
+    armorRing(B, 0, cy, 0, R, r.int(2, 3), r.range(0.5, 0.8) * dir(), false, 1.2);
+    B.occ.push({ x0: -R - 0.8, x1: R + 0.8, y0: cy - R, y1: cy + R });
+    const gens = [];
+    for (let i = 0; i < 2; i++) {
+      let spot = B.freeSpot(0.6, 0.5, MAX_H + 1.5, (x, y) => (Math.abs(x) > R + 1.2 ? r.f() - Math.abs(y - cy) * 0.1 : -1e6));
+      if (!spot) spot = { x: (i ? 1 : -1) * (R + 1.6), y: cy - 1.2 };
+      B.blocks.push({ x: spot.x, y: spot.y, z: 0.5, w: 0.8, h: 0.8, d: 0.8, shape: 'gen', type: 'gen', kin: { mode: 'hover', hx: spot.x, hy: spot.y, hz: 0.5, amp: 0.15, ph: r.range(0, 6) } });
+      gens.push(B.blocks.length - 1);
+    }
+    B.shields.push({ x: 0, y: cy, z: 0, r: R + 0.45, gens });
+    return;
+  }
+  armorRing(B, 0, cy, 0, R, r.int(3, 4 + Math.round(d * 2)), r.range(0.6, 1.0) * dir() * (1 + d * 0.5), false, 1.4 + d * 0.6);
+  if (big) armorRing(B, 0, cy, 0, R + 0.9, r.int(4, 6), r.range(0.4, 0.7) * dir(), true, 1.3);
+  B.occ.push({ x0: -R - 1.4, x1: R + 1.4, y0: cy - R, y1: cy + R });
+}
+
 export function generate(n, variant) {
   variant = variant || 0;
   const B = new Builder(n, variant);
   const r = B.r, d = B.d;
-  const boss = n % 50 === 0;
+  const boss = isBoss(n);
+  const bk = boss ? bossKind(n) : null;
   const intro = introAt(n);
 
   /* ---- features ---- */
@@ -421,7 +492,7 @@ export function generate(n, variant) {
   const air = ['orbit', 'rotor', 'spinner', 'tether', 'float', 'shield'];
   const plat = ['turntable', 'moving', 'rock', 'elevator'];
   for (const k of GIMMICK_ORDER) {
-    if (k === 'boss' || GIMMICKS[k].n >= n) continue;
+    if (k.startsWith('boss') || GIMMICKS[k].n >= n) continue;
     let p;
     if (typeish.includes(k)) p = (k === 'star' ? 0.55 : 0.2) + 0.25 * d;
     else if (air.includes(k)) p = 0.13 + 0.15 * d;
@@ -446,11 +517,13 @@ export function generate(n, variant) {
   /* ---- layout ---- */
   let layout;
   if (n <= 6) layout = ['single', 'single', 'single', 'single', 'double', 'single'][n - 1];
+  else if (bk === 'fortress') layout = 'fortress';
+  else if (bk === 'twin') layout = 'single';
   else if (boss) layout = r.chance(0.5) ? 'double' : 'single';
   else layout = r.weighted([['single', 3.2], ['double', 2.4], ['bridge', 1.4], ['stepped', 1.3], ['scattered', 1.1 + d]]);
   if ((spin || feats.has('rock') || feats.has('moving') || feats.has('elevator')) && (layout === 'bridge')) layout = 'single';
 
-  const airRoom = boss ? 3.6 : airCount ? 2.2 + 0.4 * Math.min(airCount, 2) : 0;
+  const airRoom = bk === 'omega' ? 4.4 : boss ? 3.8 : airCount ? 2.2 + 0.4 * Math.min(airCount, 2) : 0;
   const maxHFor = (top) => Math.max(U, MAX_H - airRoom - top);
   const allowOrb = feats.has('orb') || (n > 11 && r.chance(0.12));
   const tpl = (ex) => B.pickTemplate(allowOrb, ex);
@@ -463,6 +536,25 @@ export function generate(n, variant) {
     if (intro === 'orb') tn = 'orbPile';
     if (spin && r.chance(0.25)) tn = 'dominoRing';
     B.build({ x: 0, z: 0, top: 0, w, d: dd, maxH: maxHFor(0) }, tn, p);
+  } else if (layout === 'fortress') {
+    // a spinning round keep: a ring wall with gaps, the core hovering inside
+    const R0 = r.range(1.55, 1.95), pr = R0 + 0.75;
+    const p = B.pedestal(0, 0, 0, pr * 2, pr * 2, true);
+    p.spin = { w: r.range(0.35, 0.55 + d * 0.3) * (r.chance(0.5) ? 1 : -1) };
+    const cnt = Math.floor((2 * Math.PI * R0) / 0.98);
+    const gapAt = r.int(0, cnt - 1), gap2 = d > 0.3 && r.chance(0.5) ? -1 : (gapAt + Math.floor(cnt / 2)) % cnt;
+    const rows = 2 + (d > 0.5 && r.chance(0.5) ? 1 : 0);
+    const out = [];
+    for (let i = 0; i < cnt; i++) {
+      if (i === gapAt || i === gap2) continue;
+      const a = (i / cnt) * Math.PI * 2;
+      for (let k = 0; k < rows; k++) place(out, Math.cos(a) * R0, Math.sin(a) * R0, k * U, 0.9, U, 0.9, k === rows - 1 && i % 2 ? 'cyl' : 'box', { rotY: -a });
+    }
+    for (const b of out) b.site = 0;
+    B.blocks.push(...out);
+    const bb = bounds(out); B.occ.push(bb);
+    B.sites.push({ site: { x: 0, z: 0, top: 0, w: pr * 2, d: pr * 2, maxH: 3 }, bounds: bb, ped: p, blocks: out, tname: 'fortress' });
+    B.fortressCore = { y: 1.05 };
   } else if (layout === 'double') {
     const w1 = r.int(2, 3), w2 = r.int(2, 3);
     const gap = r.range(1.2, 2.4);
@@ -531,17 +623,7 @@ export function generate(n, variant) {
   /* ---- boss ---- */
   let topY = 0;
   for (const b of B.blocks) topY = Math.max(topY, b.y + b.h / 2);
-  if (boss) {
-    const cy = Math.max(topY + 2.4, 5.4);
-    B.blocks.push({ x: 0, y: cy, z: 0, w: 1.8, h: 1.8, d: 1.8, shape: 'core', type: 'core', hp: Math.min(12, 5 + Math.floor(n / 150)), kin: { mode: 'hover', hx: 0, hy: cy, hz: 0, amp: 0.2, ph: 0 } });
-    const segs = r.int(3, 4 + Math.round(d * 2));
-    const R = 2.1;
-    const speed = r.range(0.6, 1.0) * (r.chance(0.5) ? 1 : -1) * (1 + d * 0.5);
-    const items = [];
-    for (let i = 0; i < segs; i++) items.push({ a: (i / segs) * Math.PI * 2, r: R, w: 0.3, h: 1.4 + d * 0.6, d: 1.3, type: 'steel' });
-    B.orbits.push({ cx: 0, cy, cz: 0, speed, items, steel: true, tilt: r.range(-0.25, 0.25) });
-    B.occ.push({ x0: -R - 0.8, x1: R + 0.8, y0: cy - R, y1: cy + R });
-  }
+  if (boss) addBoss(B, bk, n, topY);
 
   /* ---- platform modifiers ---- */
   const main = B.pedestals.filter((p) => p.w > 1.3);
@@ -705,7 +787,7 @@ export function generate(n, variant) {
   const sector = Math.floor((n - 1) / 50);
   return {
     n, variant, sector, sectorName: SECTORS[sector][0], hue: SECTORS[sector][1],
-    gravity, boss, intro, feats: [...feats],
+    gravity, boss, bossKind: bk, bossName: bk ? BOSSES[bk].name : null, intro, feats: [...feats],
     pedestals: B.pedestals, blocks: B.blocks, orbits: B.orbits, spinners: B.spinners,
     tethers: B.tethers, shields: B.shields, killY, lasers: 12, templates: B.sites.map((q) => q.tname || 'bridge'),
   };
@@ -1076,7 +1158,8 @@ export class Sim {
       this.events.push({ t: 'coreDown', x: pos.x, y: pos.y, z: pos.z });
       this.blast(pos, 8, 17, b, 'core');
       for (const o of this.bodies) {
-        if (o.lb.alive && o.lb.kin && o.lb.kin.mode === 'orbit' && o.lb.type === 'steel') { o.lb.kin.release = true; this._release(o); }
+        const ko = o.lb.kin && o.lb.kin.o;
+        if (o.lb.alive && ko && o.lb.kin.mode === 'orbit' && o.lb.type === 'steel' && Math.hypot(ko.cx - pos.x, ko.cy - pos.y, ko.cz - pos.z) < 1.5) { o.lb.kin.release = true; this._release(o); }
       }
     } else if (L.type === 'gen') this.blast(pos, 1.6, 5, b, 'gen');
     else if (cause === 'impact') this.blast(pos, 1.5, 5.5, b, 'destroy');

@@ -121,7 +121,7 @@ function startStage(n) {
   game.lastHud = {};
   $('hudStage').textContent = 'STAGE ' + n;
   $('hudSector').textContent = `SECTOR ${String(st.sector + 1).padStart(2, '0')} // ${st.sectorName}`;
-  A.startMusic(st.sector, st.boss ? 1.4 : 1);
+  A.startMusic(st.boss ? 90 + (st.bossKind === 'omega' ? 1 : 0) : st.sector, st.boss ? 1.5 : 1);
   A.play('start');
   if (st.intro && !save.seen[st.intro]) {
     game.paused = true;
@@ -129,7 +129,7 @@ function startStage(n) {
   } else stageBanner(st);
 }
 function stageBanner(st) {
-  if (st.boss) banner('⚠ WARNING ⚠', 'CORE GUARDIAN', 'STAGE ' + st.n, true);
+  if (st.boss) banner(st.bossKind === 'omega' ? '⚠ SECTOR BOSS ⚠' : '⚠ WARNING ⚠', st.bossName, 'STAGE ' + st.n, true);
   else banner(`SECTOR ${String(st.sector + 1).padStart(2, '0')} ─ ${st.sectorName}`, 'STAGE ' + st.n, `LASER × ${st.lasers}`);
 }
 function showIntro(key, done) {
@@ -137,7 +137,8 @@ function showIntro(key, done) {
   const map = {
     star: ['star', 'box'], turntable: ['normal', 'round'], armor: ['armor', 'box'], orb: ['normal', 'orb'], bomb: ['bomb', 'box'],
     moving: ['normal', 'plank'], orbit: ['normal', 'box'], rotor: ['normal', 'box'], steel: ['steel', 'box'], spinner: ['steel', 'plank'],
-    tether: ['normal', 'box'], float: ['normal', 'box'], rock: ['normal', 'plank'], boss: ['core', 'core'], shield: ['gen', 'gen'],
+    tether: ['normal', 'box'], float: ['normal', 'box'], rock: ['normal', 'plank'], shield: ['gen', 'gen'],
+    bossGuardian: ['core', 'core'], bossTwin: ['core', 'core'], bossFortress: ['core', 'core'], bossShield: ['gen', 'gen'], bossOmega: ['core', 'core'],
     crystal: ['crystal', 'box'], phase: ['phase', 'box'], lowgrav: ['normal', 'orb'], elevator: ['normal', 'plank'],
   };
   const m = map[key] || ['normal', 'box'];
@@ -190,7 +191,7 @@ function onFail() {
     <h2 class="fail">SYSTEM FAILURE</h2>
     <div class="sub fail">OUT OF LASER ENERGY</div>
     <div class="jp" style="font-size:13px;color:#cfe0f5;margin:6px 0 2px">残りターゲット <b style="color:#fff">${sim.targetsLeft}</b> / ${sim.targetsTotal}</div>
-    <div class="jp" style="font-size:11px;color:var(--dim)">ヒント：支えている脚や柱を撃ち抜くと一気に崩れる</div>
+    <div class="jp" style="font-size:11px;color:var(--dim)">${sim.stage.boss ? 'ヒント：装甲や壁の隙間がコアの正面に来た瞬間を狙おう' : 'ヒント：支えている脚や柱を撃ち抜くと一気に崩れる'}</div>
     <div class="btns">
       <button class="neon-btn big" id="btnRetry">RETRY</button>
       <button class="neon-btn ghost" id="btnMenu">STAGES</button>
@@ -321,11 +322,11 @@ function buildGrid() {
   for (let n = s * 50 + 1; n <= s * 50 + 50; n++) {
     const locked = n > save.unlocked;
     const st = save.stars[n - 1] || 0;
-    const boss = n % 50 === 0;
+    const boss = C.isBoss(n), omega = n % 50 === 0;
     const intro = !boss && Object.values(C.GIMMICKS).some((g) => g.n === n);
     const cur = n === save.unlocked;
     html += `<button class="stage-tile ${locked ? 'locked' : ''} ${boss ? 'boss' : ''} ${cur ? 'current' : ''}" data-n="${n}" style="--sh:${s === 19 ? (n * 47) % 360 : hue}">
-      ${boss ? '<span class="tag">CORE</span>' : intro ? '<span class="tag">NEW</span>' : ''}
+      ${boss ? `<span class="tag">${omega ? 'OMEGA' : 'BOSS'}</span>` : intro ? '<span class="tag">NEW</span>' : ''}
       <div class="num">${locked ? '🔒' : n}</div>
       <div class="stars">${locked ? '' : [0, 1, 2].map((i) => (i < st ? '<b>★</b>' : '★')).join('')}</div></button>`;
   }
