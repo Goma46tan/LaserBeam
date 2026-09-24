@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#05020f">
+<meta name="description" content="LaserBeam - サイバー空間のブロックをレーザーで吹き飛ばす爽快物理パズル。全1000ステージ。">
+<title>LaserBeam</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <button id="btnPause" class="icon-btn" aria-label="ポーズ"><span class="pause-ico"></span></button>
+      <div class="hud-stage">
+        <div id="hudStage">STAGE 1</div>
+        <div id="hudSector">NEON CITY</div>
+      </div>
+      <div class="hud-score"><div class="lbl">SCORE</div><div id="hudScore">0</div></div>
+      <div id="hudLaser" class="hud-laser">
+        <svg viewBox="0 0 24 24" class="bolt"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+        <span id="hudLaserN">0</span>
+      </div>
+    </div>
+    <div class="hud-progress">
+      <div class="bar"><div id="hudBar"></div></div>
+      <span id="hudTargets">0 / 0</span>
+    </div>
+  </div>
+
+  <div id="banner" class="banner"></div>
+  <div id="combo" class="combo"></div>
+
+  <!-- TITLE -->
+  <section id="scrTitle" class="screen">
+    <div class="title-wrap">
+      <div class="logo-top">CYBER DESTRUCTION PUZZLE</div>
+      <h1 class="logo" data-text="LaserBeam">LaserBeam</h1>
+      <div class="logo-line"></div>
+      <div class="logo-sub">1000 STAGES</div>
+    </div>
+    <div class="title-menu">
+      <button id="btnStart" class="neon-btn big">START</button>
+      <button id="btnSelect" class="neon-btn">STAGE SELECT</button>
+      <button id="btnSettings" class="neon-btn ghost">SETTINGS</button>
+    </div>
+    <div class="title-foot">TAP TO FIRE ─ レーザーでブロックを台座から吹き飛ばせ</div>
+  </section>
+
+  <!-- STAGE SELECT -->
+  <section id="scrSelect" class="screen hidden">
+    <header class="sel-head">
+      <button id="btnSelBack" class="icon-btn" aria-label="戻る">&#x276E;</button>
+      <div class="sel-title">STAGE SELECT</div>
+      <div id="selTotal" class="sel-total">★ 0 / 3000</div>
+    </header>
+    <div id="sectorStrip" class="sector-strip"></div>
+    <div id="sectorInfo" class="sector-info"></div>
+    <div id="stageGrid" class="stage-grid"></div>
+  </section>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal hidden">
+    <div id="modalCard" class="modal-card"></div>
+  </div>
+</div>
+
+<script src="js/matter.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/budget.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

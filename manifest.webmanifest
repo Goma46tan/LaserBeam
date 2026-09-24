@@ -1,0 +1,13 @@
+{
+  "name": "LaserBeam",
+  "short_name": "LaserBeam",
+  "description": "サイバー空間のブロックをレーザーで吹き飛ばす物理パズル。全1000ステージ。",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#05020f",
+  "theme_color": "#05020f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

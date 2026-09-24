@@ -1,0 +1,128 @@
+// Validates every stage (stability + solvability) with a bot and writes js/budget.js
+// usage: node tools/precompute.js [from] [to] [--out file.json]
+'use strict';
+const path = require('path');
+const fs = require('fs');
+global.Matter = require(path.join(__dirname, '../js/matter.min.js'));
+const LB = require(path.join(__dirname, '../js/core.js'));
+
+const args = process.argv.slice(2);
+const from = parseInt(args[0] || '1', 10);
+const to = parseInt(args[1] || String(LB.STAGE_COUNT), 10);
+const outIdx = args.indexOf('--out');
+const outFile = outIdx >= 0 ? args[outIdx + 1] : null;
+const verbose = args.includes('-v');
+
+function stabilityCheck(sim, stage) {
+  const hasMoving = stage.platforms.some((p) => p.move || p.rock);
+  const init = new Map();
+  for (const b of sim.targets) init.set(b, { x: b.position.x, y: b.position.y });
+  for (let i = 0; i < 300; i++) {
+    sim.step();
+    if (sim.targetsLeft < sim.targetsTotal) return 'target lost at step ' + i;
+  }
+  sim.drainEvents();
+  if (hasMoving) return null;
+  for (const b of sim.targets) {
+    if (b.isStatic || (b.lb.float)) continue;
+    const p0 = init.get(b);
+    const dd = Math.hypot(b.position.x - p0.x, b.position.y - p0.y);
+    if (dd > 10) return 'moved ' + dd.toFixed(1) + ' ' + b.lb.shape;
+  }
+  return null;
+}
+
+function botChoose(sim, rnd) {
+  for (const s of sim.shields) {
+    if (!s.active) continue;
+    const g = s.gens.find((q) => q.lb.alive);
+    if (g) return { x: g.position.x, y: g.position.y };
+  }
+  for (const c of sim.tethers) {
+    if (c.lb.alive && !c.bodyA && c.bodyB.lb.alive && rnd() < 0.8) {
+      const [a, b] = sim.tetherPoints(c);
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+  }
+  const alive = sim.targets.filter((b) => b.lb.alive && !b.lb.cleared && !sim.isPhased(b) && !sim.inShield(b.position.x, b.position.y));
+  if (!alive.length) return null;
+  let best = null, bestS = -Infinity;
+  for (const b of alive) {
+    let s, pt;
+    const p = b.position;
+    if (b.isStatic || (b.lb.float && b.lb.float.on) || b.lb.type === 'armor') {
+      s = 0.6 + rnd() * 0.6; pt = { x: p.x, y: p.y };
+    } else {
+      let plat = null;
+      for (const q of sim.bodies) {
+        if (q.lb.kind !== 'platform') continue;
+        const pw = q.lb.w / 2;
+        if (Math.abs(p.x - q.position.x) < pw + 10 && q.position.y > p.y) {
+          if (!plat || q.position.y < plat.position.y) plat = q;
+        }
+      }
+      if (!plat) { s = 0.5 + rnd(); pt = { x: p.x, y: p.y }; }
+      else {
+        const dx = p.x - plat.position.x;
+        const side = Math.abs(dx) < 4 ? (rnd() < 0.5 ? -1 : 1) : Math.sign(dx);
+        s = Math.abs(dx) / (plat.lb.w / 2) + (plat.position.y - p.y) / 500 + rnd() * 0.5;
+        pt = rnd() < 0.25 ? { x: p.x, y: p.y } : { x: p.x - side * LB.U * 0.8, y: p.y + LB.U * 0.15 };
+      }
+    }
+    if (s > bestS) { bestS = s; best = pt; }
+  }
+  return best;
+}
+
+function botRun(stage, seed) {
+  let s = seed;
+  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const st = Object.assign({}, stage, { lasers: 999 });
+  const sim = new LB.Sim(st, { rand: rnd });
+  const err = stabilityCheck(sim, st);
+  if (err) return { err };
+  let guard = 0;
+  while (sim.state === 'play' && sim.shots < 90 && guard++ < 400) {
+    const pt = botChoose(sim, rnd);
+    if (pt) sim.fire(pt.x, pt.y);
+    let w = 0;
+    do { sim.step(); w++; } while (sim.state === 'play' && w < 150 && !(w > 25 && sim.calm > 15));
+    sim.drainEvents();
+  }
+  if (sim.state !== 'clear') return { err: 'bot failed (' + sim.targetsLeft + '/' + sim.targetsTotal + ' left)' };
+  return { shots: sim.shots, targets: sim.targetsTotal };
+}
+
+// generous early on, tighter later
+function budgetFor(n, shots) {
+  const f = Math.min(1, (n - 1) / 600);
+  return Math.min(60, Math.ceil(shots * (1.4 - 0.28 * f)) + (n <= 30 ? 3 : 2));
+}
+
+const results = [];
+const t0 = Date.now();
+for (let n = from; n <= to; n++) {
+  let chosen = null;
+  for (let v = 0; v < 14 && !chosen; v++) {
+    const stage = LB.generate(n, v);
+    const a = botRun(stage, 1234 + n * 7 + v);
+    if (a.err) { if (verbose) console.log(n, 'v' + v, a.err, stage.feats.join(',')); continue; }
+    const b = botRun(stage, 999 + n * 13 + v);
+    if (b.err) { if (verbose) console.log(n, 'v' + v, 'run2', b.err); continue; }
+    const shots = Math.max(a.shots, b.shots);
+    const lasers = budgetFor(n, shots);
+    chosen = [v, lasers, a.targets, a.shots, b.shots];
+  }
+  if (!chosen) { console.log('!! stage', n, 'no valid variant'); chosen = [0, 30, 0, -1, -1]; }
+  results.push([n, ...chosen]);
+  if (verbose || n % 25 === 0) console.log(n, JSON.stringify(chosen), ((Date.now() - t0) / 1000).toFixed(1) + 's');
+}
+if (outFile) fs.writeFileSync(outFile, JSON.stringify(results));
+if (args.includes('--js')) {
+  const tab = results.map((r) => [r[1], r[2]]);
+  fs.writeFileSync(path.join(__dirname, '../js/budget.js'),
+    '/* generated by tools/precompute.js - [variant, lasers] per stage */\n' +
+    '(function (G) { (G.LB || (G.LB = {})).BUDGET = ' + JSON.stringify(tab) +
+    "; })(typeof globalThis !== 'undefined' ? globalThis : this);\n");
+  console.log('wrote js/budget.js');
+}
