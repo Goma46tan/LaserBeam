@@ -90,6 +90,7 @@
     game.demoNext = 1.8; game.demoClearT = -1;
     setThemeHue(stageHue(n));
     R.clearFx(); R.introT = 0; R.zoom = 1;
+    R.setFocus(R.focusFromSim(game.sim));
   }
   function demoTick(dt) {
     const sim = game.sim;
@@ -124,6 +125,7 @@
     setThemeHue(stageHue(n));
     R.clearFx(); R.introT = 0;
     closeModal(); show(null); hud(true);
+    R.setFocus(R.focusFromSim(game.sim));
     game.lastHud = {};
     $('hudStage').textContent = 'STAGE ' + n;
     $('hudSector').textContent = `SECTOR ${String(st.sector + 1).padStart(2, '0')} // ${st.sectorName}`;
@@ -364,11 +366,12 @@
   function canAim() { return game.mode === 'play' && !game.paused && !modalOpen() && game.sim && game.sim.state === 'play' && R.introT > 1.1; }
 
   function pointerPos(e) { return R.toWorld(e.clientX, e.clientY); }
+  function nearTurret(p) { return p.y > TURRET.y - 50 * R.turretScale; }
   function onDown(e) {
     A.init();
     if (!canAim() || game.pointer !== null) return;
     const p = pointerPos(e);
-    if (p.y > TURRET.y - 50) return;
+    if (nearTurret(p)) return;
     game.pointer = e.pointerId;
     R.aim = p;
     A.play('charge');
@@ -383,7 +386,7 @@
     game.pointer = null;
     const p = R.aim; R.aim = null;
     if (!p || !canAim()) return;
-    if (p.y > TURRET.y - 50) return;
+    if (nearTurret(p)) return;
     const sim = game.sim;
     if (sim.lasers <= 0) { A.play('empty'); return; }
     fireAt(p.x, p.y);
@@ -407,7 +410,7 @@
         case 'laser': {
           const a = Math.atan2(e.y - TURRET.y, e.x - TURRET.x);
           R.turretAngle = a;
-          const mx = TURRET.x + Math.cos(a) * 76, my = TURRET.y + Math.sin(a) * 76;
+          const mx = TURRET.x + Math.cos(a) * 76 * R.turretScale, my = TURRET.y + Math.sin(a) * 76 * R.turretScale;
           R.beam(mx, my, e.x, e.y, hue);
           R.recoil = 1;
           R.flare(mx, my, 34, 0.18, hue, false);
@@ -417,7 +420,7 @@
           A.play('laser');
           if (!demo) vib(8);
           if (e.result === 'empty') {
-            R.ring(e.x, e.y, 8, 115, 0.38, hue, 3);
+            R.ring(e.x, e.y, 8, LB.BLAST_R, 0.38, hue, 3);
             R.ring(e.x, e.y, 4, 70, 0.3, hue + 40, 2);
             R.glows(e.x, e.y, hue, 6, 180, 14, 0.4);
             A.play('blast');
@@ -485,6 +488,10 @@
         case 'fall': {
           const L = e.body.lb, bh = R.blockHue(L);
           const y = Math.min(e.y, sim.killY + 30);
+          // blocks that drop off the stage burst apart as they leave
+          R.shards(e.x, y, L.w, L.h, e.body.angle, bh, e.body.velocity.x * 0.5, -3, 0.9);
+          R.flare(e.x, y, 55, 0.3, bh, true);
+          R.spark(e.x, y, bh, 10, 420, 0.45);
           R.pixels(e.x, y, L.w, L.h, bh, 18);
           R.glows(e.x, y, bh, 4, 90, 16, 0.5);
           R.ring(e.x, y, 4, 50, 0.4, bh, 2);

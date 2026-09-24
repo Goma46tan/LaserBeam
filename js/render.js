@@ -5,16 +5,18 @@
   const { W, H, U, TURRET } = LB;
   const clamp = LB.clamp;
   const TAU = Math.PI * 2;
-  const HORIZON = 835;
+  let HORIZON = 835;
 
   const R = (LB.Render = {
     quality: 'high', t: 0,
     shake: 0, flash: 0, flashHue: 0, flashWhite: 0, glitch: 0, zoom: 1, zoomX: 300, zoomY: 500,
     aim: null, turretAngle: -Math.PI / 2, recoil: 0,
     introT: 99, stageHue: 190,
+    focus: null, turretScale: 1, blastR: LB.BLAST_R,
   });
 
-  let cv, ctx, dpr = 1, cw = 0, ch = 0, S = 1, offX = 0, offY = 0, K = 1;
+  // S0 = scale that fits the whole 600x1100 world; S = camera scale zoomed onto the stage content
+  let cv, ctx, dpr = 1, cw = 0, ch = 0, S = 1, S0 = 1, offX = 0, offY = 0, K = 1;
   let bgCache = null, bgKey = '';
   const spriteCache = new Map();
   const glowCache = new Map();
@@ -31,11 +33,44 @@
     dpr = Math.min(G.devicePixelRatio || 1, R.quality === 'low' ? 1.25 : 2);
     cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
     cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
-    S = Math.min(cw / W, ch / H);
-    offX = (cw - W * S) / 2;
-    offY = (ch - H * S) * 0.62;
+    S0 = Math.min(cw / W, ch / H);
+    const f = R.focus;
+    const botPad = 150;
+    if (f) {
+      const hudEl = document.getElementById('hud');
+      const hb = hudEl && !hudEl.classList.contains('hidden') ? hudEl.getBoundingClientRect().bottom : 0;
+      const topPad = Math.max(hb, 70) + 14;
+      const bw = Math.max(300, f.x1 - f.x0 + 50), bh = f.y1 - f.y0 + 30;
+      S = clamp(Math.min(cw / bw, (ch - topPad - botPad) / bh), S0, S0 * 2.6);
+      offX = cw / 2 - ((f.x0 + f.x1) / 2) * S;
+      offY = topPad + (ch - topPad - botPad - bh * S) / 2 + 15 * S - f.y0 * S;
+      HORIZON = f.y1 + 60;
+    } else {
+      S = S0;
+      offX = (cw - W * S) / 2;
+      offY = (ch - H * S) * 0.62;
+      HORIZON = 835;
+    }
+    // the turret stays pinned to the bottom of the screen at a constant on-screen size
+    R.turretScale = S0 / S;
+    TURRET.x = (cw / 2 - offX) / S;
+    TURRET.y = (ch - 70 - offY) / S;
     K = S * dpr;
     spriteCache.clear(); bgKey = '';
+  };
+  R.setFocus = function (f) { R.focus = f; R.resize(); };
+  // bounding box of everything a stage contains (in world units)
+  R.focusFromSim = function (sim) {
+    const st = sim.stage;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    const add = (a, b, c) => { x0 = Math.min(x0, a); x1 = Math.max(x1, b); y0 = Math.min(y0, c); };
+    for (const b of sim.bodies) add(b.bounds.min.x, b.bounds.max.x, b.bounds.min.y);
+    for (const o of st.orbits) { let rr = 0; for (const it of o.items) rr = Math.max(rr, it.r + it.w * 0.7); add(o.cx - rr, o.cx + rr, o.cy - rr); }
+    for (const s of st.spinners) add(s.x - s.len / 2, s.x + s.len / 2, s.y - s.len / 2);
+    for (const t of st.tethers) add(t.ax - 10, t.ax + 10, t.ay - 10);
+    for (const s of st.shields) add(s.x - s.r, s.x + s.r, s.y - s.r);
+    for (const p of st.platforms) if (p.move) add(p.x - p.w / 2 - p.move.ax, p.x + p.w / 2 + p.move.ax, p.y - p.move.ay);
+    return { x0: Math.max(0, x0 - 20), x1: Math.min(W, x1 + 20), y0: y0 - 20, y1: sim.killY };
   };
   R.toWorld = function (sx, sy) { return { x: (sx - offX) / S, y: (sy - offY) / S }; };
   R.toScreen = function (wx, wy) { return { x: wx * S + offX, y: wy * S + offY }; };
@@ -299,7 +334,7 @@
       g.fillRect(x, y, s, s);
     }
     // sun
-    const sx = c.width / 2, sr = Math.min(170 * S, c.width * 0.32) * dpr, sy = hy - sr * 0.35;
+    const sx = c.width / 2, sr = Math.min(170 * S0, c.width * 0.32) * dpr, sy = hy - sr * 0.35;
     g.save();
     g.beginPath(); g.rect(0, 0, c.width, hy); g.clip();
     const sg = g.createLinearGradient(0, sy - sr, 0, sy + sr);
@@ -309,7 +344,7 @@
     g.shadowBlur = 0;
     g.globalCompositeOperation = 'destination-out';
     for (let i = 0; i < 9; i++) {
-      const yy = sy + sr * (0.05 + i * 0.11), hh = (1.5 + i * 1.1) * dpr * S * 1.6;
+      const yy = sy + sr * (0.05 + i * 0.11), hh = (1.5 + i * 1.1) * dpr * S0 * 1.6;
       g.fillRect(sx - sr, yy, sr * 2, hh);
     }
     g.restore();
@@ -319,17 +354,17 @@
       let x = -10;
       const light = layer === 0 ? 9 : 5;
       while (x < c.width) {
-        const bw = (18 + rnd.f() * 40) * dpr * S * 1.4;
-        const bh = (layer === 0 ? 60 + rnd.f() * 230 : 30 + rnd.f() * 140) * dpr * S * 1.3;
+        const bw = (18 + rnd.f() * 40) * dpr * S0 * 1.4;
+        const bh = (layer === 0 ? 60 + rnd.f() * 230 : 30 + rnd.f() * 140) * dpr * S0 * 1.3;
         g.fillStyle = col(hue + (layer ? 10 : -10), 60, light);
         g.fillRect(x, base - bh, bw, bh);
         // antenna
-        if (rnd.f() < 0.25) { g.fillRect(x + bw / 2 - dpr, base - bh - 14 * dpr * S, 2 * dpr, 14 * dpr * S); g.fillStyle = col(0, 100, 60); g.fillRect(x + bw / 2 - 1.5 * dpr, base - bh - 16 * dpr * S, 3 * dpr, 3 * dpr); }
+        if (rnd.f() < 0.25) { g.fillRect(x + bw / 2 - dpr, base - bh - 14 * dpr * S0, 2 * dpr, 14 * dpr * S0); g.fillStyle = col(0, 100, 60); g.fillRect(x + bw / 2 - 1.5 * dpr, base - bh - 16 * dpr * S0, 3 * dpr, 3 * dpr); }
         // windows
         if (layer === 1) {
-          for (let wy = base - bh + 6 * dpr; wy < base - 4 * dpr; wy += 7 * dpr * S * 1.3) {
-            for (let wx = x + 4 * dpr; wx < x + bw - 4 * dpr; wx += 6 * dpr * S * 1.3) {
-              if (rnd.f() < 0.28) { g.fillStyle = rnd.f() < 0.7 ? col(hue, 100, 70, 0.55) : col(h2, 100, 70, 0.55); g.fillRect(wx, wy, 2 * dpr * S * 1.3, 2.5 * dpr * S * 1.3); }
+          for (let wy = base - bh + 6 * dpr; wy < base - 4 * dpr; wy += 7 * dpr * S0 * 1.3) {
+            for (let wx = x + 4 * dpr; wx < x + bw - 4 * dpr; wx += 6 * dpr * S0 * 1.3) {
+              if (rnd.f() < 0.28) { g.fillStyle = rnd.f() < 0.7 ? col(hue, 100, 70, 0.55) : col(h2, 100, 70, 0.55); g.fillRect(wx, wy, 2 * dpr * S0 * 1.3, 2.5 * dpr * S0 * 1.3); }
             }
           }
         } else {
@@ -362,7 +397,7 @@
   }
 
   function drawBackground(hue) {
-    const key = hue + '|' + cv.width + 'x' + cv.height;
+    const key = hue + '|' + cv.width + 'x' + cv.height + '|' + S.toFixed(3) + '|' + Math.round(offY) + '|' + HORIZON;
     if (key !== bgKey) { bgCache = buildBackground(hue); bgKey = key; buildOverlays(); }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'source-over';
@@ -936,6 +971,14 @@
   }
 
   function drawTurret() {
+    // draw scaled about the turret position so it keeps a constant on-screen size
+    const ts = R.turretScale;
+    const sc = camS, sx0 = camX, sy0 = camY;
+    camX = camX + TURRET.x * camS * (1 - ts); camY = camY + TURRET.y * camS * (1 - ts); camS *= ts;
+    drawTurretInner();
+    camS = sc; camX = sx0; camY = sy0;
+  }
+  function drawTurretInner() {
     const x = TURRET.x, y = TURRET.y;
     const hue = R.stageHue;
     const a = R.turretAngle;
@@ -998,7 +1041,7 @@
     ctx.globalCompositeOperation = 'lighter';
     setWorld();
     const hue = R.stageHue;
-    const mx = TURRET.x + Math.cos(R.turretAngle) * 76, my = TURRET.y + Math.sin(R.turretAngle) * 76;
+    const mx = TURRET.x + Math.cos(R.turretAngle) * 76 * R.turretScale, my = TURRET.y + Math.sin(R.turretAngle) * 76 * R.turretScale;
     ctx.setLineDash([3, 9]); ctx.lineDashOffset = -R.t * 80;
     ctx.strokeStyle = col(hue, 100, 70, 0.55); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(a.x, a.y); ctx.stroke();
@@ -1016,7 +1059,7 @@
     ctx.stroke();
     ctx.globalAlpha = 0.25;
     ctx.fillStyle = col(hue, 100, 60);
-    ctx.beginPath(); ctx.arc(a.x, a.y, 115, 0, TAU); ctx.fill();   // blast radius preview
+    ctx.beginPath(); ctx.arc(a.x, a.y, R.blastR, 0, TAU); ctx.fill();   // blast radius preview
     ctx.globalAlpha = 1;
     ctx.drawImage(glowSprite(hue, true), a.x - 6, a.y - 6, 12, 12);
     ctx.globalCompositeOperation = 'source-over';

@@ -39,7 +39,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .icon-btn:active { transform: scale(0.92); }
 .pause-ico { width: 12px; height: 14px; border-left: 4px solid var(--neon); border-right: 4px solid var(--neon); }
 .hud-stage { flex: 1; min-width: 0; }
-#hudStage { font-weight: 900; font-size: 18px; letter-spacing: 1px; text-shadow: 0 0 10px var(--neon); }
+#hudStage { white-space: nowrap; font-weight: 900; font-size: clamp(14px, 4.4vw, 18px); letter-spacing: 1px; text-shadow: 0 0 10px var(--neon); }
 #hudSector { font-size: 10px; color: var(--neon); letter-spacing: 2px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-score { text-align: right; }
 .hud-score .lbl { font-size: 9px; color: var(--dim); letter-spacing: 2px; }

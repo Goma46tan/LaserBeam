@@ -9,6 +9,7 @@
   const TURRET = { x: 300, y: 1032 };
   const TOP_LIMIT = 185;           // structures never rise above this
   const REF_MASS = U * U * 0.0012;
+  const BLAST_R = 130;            // radius of the shockwave when the laser hits empty space
 
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const ramp = (t) => { const x = clamp(t / 2, 0, 1); return x * x * (3 - 2 * x); };
@@ -989,9 +990,12 @@
         }
       }
       for (const [c, o] of [[a, b], [b, a]]) {
-        if (!c.lb || c.lb.type !== 'crystal' || !c.lb.alive) continue;
+        const L = c.lb;
+        if (!L || !L.alive || !L.target || c.isStatic) continue;
         const rv = Math.hypot(c.velocity.x - o.velocity.x, c.velocity.y - o.velocity.y);
-        if (rv > 4.2) this._crystalBreak.push(c);
+        // crystals are fragile; everything else shatters when it slams into something hard enough
+        const limit = L.type === 'crystal' ? 4.2 : L.type === 'armor' ? 11 : L.type === 'core' || L.type === 'gen' ? 1e9 : 8;
+        if (rv > limit) this._crystalBreak.push(c);
       }
     }
   };
@@ -1002,7 +1006,7 @@
     Engine.update(this.engine, 1000 / 60);
     if (this._crystalBreak.length) {
       const list = this._crystalBreak; this._crystalBreak = [];
-      for (const c of list) this.damage(c, 99, 'crystal');
+      for (const c of list) this.damage(c, c.lb.type === 'crystal' ? 99 : 1, c.lb.type === 'crystal' ? 'crystal' : 'impact');
       this._flush();
     }
     // shields
@@ -1131,7 +1135,8 @@
     } else if (L.type === 'gen') {
       this.blast(pos, 90, 5, b, 'gen');
     } else {
-      this.blast(pos, 95, 7.4, b, 'destroy');
+      if (cause === 'impact') this.blast(pos, 80, 5.5, b, 'destroy');
+      else this.blast(pos, 110, 9.5, b, 'destroy');
     }
   };
 
@@ -1154,8 +1159,9 @@
       const nx = dist < 1 ? 0 : dx / dist, ny = dist < 1 ? -1 : dy / dist;
       const mf = clamp(Math.sqrt(REF_MASS / b.mass), 0.3, 1.25);
       const s = K * f * mf;
-      Body.setVelocity(b, { x: b.velocity.x + nx * s, y: b.velocity.y + ny * s - 1.3 * f * mf });
-      Body.setAngularVelocity(b, b.angularVelocity + (this.rand() - 0.5) * 0.14 * f);
+      Body.setVelocity(b, { x: b.velocity.x + nx * s, y: b.velocity.y + ny * s - 2.2 * f * mf });
+      // tumble: spin away from the blast so blocks cartwheel instead of sliding
+      Body.setAngularVelocity(b, b.angularVelocity + (nx >= 0 ? 1 : -1) * (0.12 + this.rand() * 0.25) * f * mf);
     }
   };
 
@@ -1218,7 +1224,7 @@
       this.events.push({ t: 'hit', x, y, body: hit });
       this.damage(hit, 1, 'laser');
       this._flush();
-      if (L.alive) this.blast(p, 95, 7.5, null, 'hit');
+      if (L.alive) this.blast(p, 105, 9, null, 'hit');
       return true;
     }
     const tc = this.pickTether(p);
@@ -1230,7 +1236,7 @@
       return true;
     }
     this.events.push({ t: 'laser', x, y, result: 'empty' });
-    this.blast(p, 115, 10, null, 'empty');
+    this.blast(p, BLAST_R, 12.5, null, 'empty');
     return true;
   };
 
@@ -1251,7 +1257,7 @@
     return st;
   }
 
-  LB.W = W; LB.H = H; LB.U = U; LB.TURRET = TURRET;
+  LB.BLAST_R = BLAST_R; LB.W = W; LB.H = H; LB.U = U; LB.TURRET = TURRET;
   LB.SECTORS = SECTORS; LB.GIMMICKS = GIMMICKS;
   LB.generate = generate; LB.getStage = getStage; LB.Sim = Sim;
   LB.makeRng = makeRng; LB.hash = hash; LB.clamp = clamp;
