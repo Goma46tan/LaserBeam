@@ -39,11 +39,20 @@ button { font-family: inherit; color: inherit; cursor: pointer; border: 0; backg
 .icon-btn:active { transform: scale(0.92); }
 .pause-ico { width: 12px; height: 14px; border-left: 4px solid var(--neon); border-right: 4px solid var(--neon); }
 .hud-stage { flex: 1; min-width: 0; }
-#hudStage { white-space: nowrap; font-weight: 900; font-size: clamp(14px, 4.4vw, 18px); letter-spacing: 1px; text-shadow: 0 0 10px var(--neon); }
+#hudStage { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 900; font-size: clamp(14px, 4.4vw, 18px); letter-spacing: 1px; text-shadow: 0 0 10px var(--neon); }
+#hudStage .lbl { font-size: 10px; font-weight: 700; letter-spacing: 2px; margin-right: 5px; opacity: 0.8; }
 #hudSector { font-size: 10px; color: var(--neon); letter-spacing: 2px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hud-score { text-align: right; }
+.hud-score { text-align: right; flex-shrink: 0; }
 .hud-score .lbl { font-size: 9px; color: var(--dim); letter-spacing: 2px; }
 #hudScore { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+/* narrow phones: 4-digit stages next to a 6-digit score must still fit */
+@media (max-width: 360px) {
+  .hud-top { gap: 7px; }
+  #hudStage { letter-spacing: 0; font-size: 13px; }
+  #hudStage .lbl { font-size: 9px; letter-spacing: 1px; margin-right: 3px; }
+  #hudScore { font-size: 15px; }
+  .hud-laser { padding-right: 9px; }
+}
 .hud-laser {
   display: flex; align-items: center; gap: 4px; padding: 4px 12px 4px 8px; border-radius: 12px;
   background: linear-gradient(180deg, rgba(10, 20, 45, 0.8), rgba(5, 8, 20, 0.8));

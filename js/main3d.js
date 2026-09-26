@@ -146,7 +146,7 @@ function startStage(n) {
   R.setStage(game.sim);
   attachEnemies(game.sim, n, false);
   game.lastHud = {};
-  $('hudStage').textContent = 'STAGE ' + n;
+  $('hudStage').innerHTML = '<span class="lbl">STAGE</span>' + n;
   $('hudSector').textContent = `Lv.${C.difficultyLevel(n)} // ${st.sectorName}`;
   A.startMusic(st.boss ? 90 + (st.bossKind === 'omega' ? 1 : 0) : st.sector, st.boss ? 1.5 : 1);
   A.play('start');
