@@ -35,6 +35,21 @@
 - モジュールの強制再取得は `fetch(url, {cache:'reload'})` の後にリロード。
 - スマホサイズ確認用の一時ファイル（`_phone.html` の iframe 330x710 など）はコミット前に削除。
 
+## 開発チーム（`.claude/agents/`）
+
+メインセッションはリード役（要件整理・分担・統合・コミット）に徹し、ファイルの大量読み込みや長時間コマンドはエージェントに任せてコンテキストを節約する。各エージェントは短い定型レポートだけを返す。
+
+| エージェント | モデル | 担当 |
+|---|---|---|
+| `gameplay-engineer` | sonnet | core3d / enemies / gear / shop / main3d のロジック |
+| `render-engineer` | sonnet | render3d / css / audio / 演出・性能 |
+| `i18n-keeper` | haiku | i18n.js の6言語反映とキー整合チェック |
+| `stage-verifier` | sonnet | precompute・smoke・レイアウト不変比較（要約のみ返す） |
+| `browser-qa` | sonnet | Chrome での実機確認（所見を文章で返す） |
+| `code-reviewer` | opus | コミット前の diff レビュー（読み取り専用） |
+
+標準フロー: 実装（engineer）→ 文言（i18n-keeper）→ 生成に影響あれば stage-verifier → browser-qa → code-reviewer → リードがリリース手順を実行。小さな修正はリードが直接行ってよい（エージェント起動のほうが高くつく）。
+
 ## リリース手順
 
 1. `node tools/version.mjs`（import map と `?v=` にハッシュ、`<meta name="lb-version">` にビルドIDを刻印）
