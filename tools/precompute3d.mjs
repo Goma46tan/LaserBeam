@@ -75,7 +75,7 @@ function botRun(stage, seed) {
   if (err) return { err };
   const cam = C.cameraFor(st, BOT_ASPECT);
   let guard = 0;
-  while (sim.state === 'play' && sim.shots < 80 && guard++ < 400) {
+  while (sim.state === 'play' && sim.shots < 120 && guard++ < 600) {
     const dir = botChoose(sim, cam, rnd);
     if (dir) sim.fire(cam.pos, dir);
     let w = 0;
@@ -86,12 +86,13 @@ function botRun(stage, seed) {
   return { shots: sim.shots, targets: sim.targetsTotal };
 }
 
-// generous early on, then tighter and tighter: by stage 1000 you get barely more than the bot needed
+// `shots` is the bot's best run. A little slack early on, then none: later stages need
+// better shots than the bot's (supports, chain reactions, bombs) rather than more of them.
 function budgetFor(n, shots) {
   const t = C.difficulty(n);
-  const mult = 1.55 - 0.5 * t;
-  const extra = n <= 20 ? 3 : n <= 150 ? 2 : n <= 600 ? 1 : 0;
-  return Math.min(60, Math.ceil(shots * mult) + extra);
+  const mult = 1.35 - 0.3 * t;
+  const extra = n <= 10 ? 3 : n <= 50 ? 2 : n <= 200 ? 1 : 0;
+  return Math.ceil(shots * mult) + extra;
 }
 
 function runRange(a, b, log) {
@@ -104,8 +105,12 @@ function runRange(a, b, log) {
       if (r1.err) { if (verbose) log(`${n} v${v} ${r1.err} ${stage.feats.join(',')} | ${stage.templates.join(',')}`); continue; }
       const r2 = botRun(stage, 999 + n * 13 + v);
       if (r2.err) { if (verbose) log(`${n} v${v} run2 ${r2.err}`); continue; }
-      const shots = Math.max(r1.shots, r2.shots);
-      chosen = [v, budgetFor(n, shots), r1.targets, r1.shots, r2.shots];
+      const r3 = botRun(stage, 555 + n * 17 + v);
+      if (r3.err) { if (verbose) log(`${n} v${v} run3 ${r3.err}`); continue; }
+      const shots = Math.min(r1.shots, r2.shots, r3.shots);
+      const budget = budgetFor(n, shots);
+      if (budget > 60) { if (verbose) log(`${n} v${v} budget ${budget} over cap`); continue; }
+      chosen = [v, budget, r1.targets, r1.shots, r2.shots, r3.shots];
     }
     if (!chosen) { log('!! stage ' + n + ' no valid variant'); chosen = [0, 30, 0, -1, -1]; }
     results.push([n, ...chosen]);

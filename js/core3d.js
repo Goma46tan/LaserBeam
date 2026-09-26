@@ -5,6 +5,7 @@ export const U = 1;                 // one cube
 export const GRAVITY = 22;
 export const BLAST_R = 2.3;         // shockwave radius when the laser hits nothing
 export const STAGE_COUNT = 1000;
+const MAX_BLOCKS = 90;              // keeps physics affordable on phones (the back rank fills up to this)
 const MAX_H = 8.6;                  // tallest a structure may stand above its pedestal
 const SIDE = 5.2;                   // |x| limit for layouts (portrait screens)
 
@@ -121,7 +122,7 @@ const T = {
   pyramid(s, r, d) {
     const out = [];
     const cz = Math.min(deps(s), 3);
-    let b = clamp(r.int(2, 3 + Math.round(d * 2)), 1, cols(s));
+    let b = clamp(r.int(3, 4 + Math.round(d * 2)), 1, cols(s));
     b = Math.min(b, rowsOf(s));
     const flat = cz < 2 || r.chance(0.3);
     for (let i = 0; i < b; i++) {
@@ -133,9 +134,9 @@ const T = {
   },
   wall(s, r, d) {
     const out = [];
-    const cx = clamp(r.int(2, 3 + Math.round(d * 2)), 1, cols(s));
-    const cz = clamp(r.int(1, 2), 1, deps(s));
-    const rows = clamp(r.int(2, 3 + Math.round(d * 4)), 1, rowsOf(s));
+    const cx = clamp(r.int(3, 4 + Math.round(d * 2)), 1, cols(s));
+    const cz = clamp(r.int(2, 3), 1, deps(s));
+    const rows = clamp(r.int(3, 4 + Math.round(d * 4)), 1, rowsOf(s));
     const shape = r.chance(0.25) ? 'cyl' : 'box';
     for (let i = 0; i < rows; i++)
       for (const x of grid(cx)) for (const z of grid(cz)) place(out, s.x + x, s.z + z, s.top + i * U, U, U, U, shape);
@@ -145,8 +146,8 @@ const T = {
   stilts(s, r, d) {
     const out = [];
     if (rowsOf(s) < 4) return T.tallStack(s, r, d);
-    const cx = clamp(r.int(2, 3 + Math.round(d)), 2, Math.max(2, cols(s)));
-    const cz = clamp(r.int(1, 3), 1, deps(s));
+    const cx = clamp(r.int(3, 4 + Math.round(d)), 2, Math.max(2, cols(s)));
+    const cz = clamp(r.int(2, 3), 1, deps(s));
     const w = cx * U, dd = cz * U;
     const thin = r.chance(0.55);
     const lw = thin ? 0.32 : 0.7, lh = thin ? 2 : 1;
@@ -190,8 +191,8 @@ const T = {
   // slender columns tied together with slabs
   tallStack(s, r, d) {
     const out = [];
-    const cx = clamp(r.int(1, 3), 1, cols(s));
-    const cz = clamp(r.int(1, 2), 1, deps(s));
+    const cx = clamp(r.int(2, 3), 1, cols(s));
+    const cz = clamp(r.int(1, 3), 1, deps(s));
     const h = clamp(r.int(4, 6 + Math.round(d * 3)), 2, rowsOf(s));
     const tie = r.int(2, 3);
     const shape = r.chance(0.4) ? 'cyl' : 'box';
@@ -207,7 +208,7 @@ const T = {
   // the classic: 3 beams per layer, alternating direction
   jenga(s, r, d) {
     const out = [];
-    const layers = clamp(r.int(6, 9 + Math.round(d * 4)), 3, Math.floor(s.maxH / 0.6));
+    const layers = clamp(r.int(8, 11 + Math.round(d * 4)), 3, Math.floor(s.maxH / 0.6));
     const L = 3, th = 0.6;
     let y = s.top;
     for (let i = 0; i < layers; i++) {
@@ -277,8 +278,8 @@ const T = {
   tree(s, r, d) {
     const out = [];
     if (cols(s) < 2 || rowsOf(s) < 4) return T.stilts(s, r, d);
-    const b = clamp(r.int(2, 3 + Math.round(d * 2)), 2, cols(s));
-    const cz = clamp(r.int(1, 2), 1, deps(s));
+    const b = clamp(r.int(3, 4 + Math.round(d * 2)), 2, cols(s));
+    const cz = clamp(r.int(2, 3), 1, deps(s));
     const w = b * U, dd = cz * U;
     const ph = r.int(1, 2);
     let top = s.top;
@@ -320,9 +321,9 @@ const T = {
   },
   skyline(s, r, d) {
     const out = [];
-    const cx = clamp(r.int(2, 3 + Math.round(d)), 1, cols(s)), cz = clamp(r.int(1, 2), 1, deps(s));
+    const cx = clamp(r.int(3, 4 + Math.round(d)), 1, cols(s)), cz = clamp(r.int(2, 3), 1, deps(s));
     for (const x of grid(cx)) for (const z of grid(cz)) {
-      const h = clamp(r.int(1, 2 + Math.round(d * 4)), 1, rowsOf(s));
+      const h = clamp(r.int(2, 3 + Math.round(d * 4)), 1, rowsOf(s));
       const shape = r.chance(0.35) ? 'cyl' : 'box';
       for (let i = 0; i < h; i++) place(out, s.x + x, s.z + z, s.top + i * U, 0.95, U, 0.95, shape);
     }
@@ -377,8 +378,8 @@ class Builder {
     this.pedestals.push(p);
     return p;
   }
-  build(site, tname, ped) {
-    const blocks = T[tname](site, this.r, this.d);
+  build(site, tname, ped, pre) {
+    const blocks = pre || T[tname](site, this.r, this.d);
     for (const b of blocks) b.site = this.sites.length;
     if (!blocks.length) return blocks;
     if (ped) this.fitPedestal(ped, blocks, site.top);
@@ -539,7 +540,7 @@ export function generate(n, variant) {
   const forced = { 1: 'stilts', 2: 'jenga', 3: 'tree', 6: 'tTower' };
 
   if (layout === 'single') {
-    const w = n <= 3 ? 3 : r.int(2, 3 + Math.round(d)), dd = r.int(2, 3);
+    const w = n <= 3 ? 4 : r.int(3, 4 + Math.round(d)), dd = 3;
     const p = B.pedestal(0, 0, 0, w + 0.4, dd + 0.4, spin);
     let tn = forced[n] || tpl();
     if (intro === 'orb') tn = 'orbPile';
@@ -565,16 +566,18 @@ export function generate(n, variant) {
     B.sites.push({ site: { x: 0, z: 0, top: 0, w: pr * 2, d: pr * 2, maxH: 3 }, bounds: bb, ped: p, blocks: out, tname: 'fortress' });
     B.fortressCore = { y: 1.05 };
   } else if (layout === 'double') {
-    const w1 = r.int(2, 3), w2 = r.int(2, 3);
-    const gap = r.range(1.2, 2.4);
+    const w1 = r.int(3, 4), w2 = r.int(3, 4);
+    let gap = r.range(1.2, 2.4);
+    // turntables grow to the footprint's diagonal: keep the two discs apart
+    if (spin) gap = Math.max(gap, Math.hypot(w1 / 2, 1.5) + Math.hypot(w2 / 2, 1.5) + 0.8 - (w1 + w2) / 2);
     const total = w1 + w2 + gap;
     const x1 = -total / 2 + w1 / 2, x2 = total / 2 - w2 / 2;
     const t1 = 0, t2 = r.chance(0.5) ? 0 : r.range(-0.8, 0.8);
     const z2 = r.chance(0.35) ? r.range(-1.6, -0.6) : 0;
-    const p1 = B.pedestal(x1, 0, t1, w1 + 0.4, 2.4, spin && r.chance(0.7));
-    const p2 = B.pedestal(x2, z2, t2, w2 + 0.4, 2.4, spin && (!p1.round || r.chance(0.5)));
-    B.build({ x: x1, z: 0, top: t1, w: w1, d: 2, maxH: maxHFor(t1) }, tpl(), p1);
-    B.build({ x: x2, z: z2, top: t2, w: w2, d: 2, maxH: maxHFor(t2) }, tpl(), p2);
+    const p1 = B.pedestal(x1, 0, t1, w1 + 0.4, 3.4, spin && r.chance(0.7));
+    const p2 = B.pedestal(x2, z2, t2, w2 + 0.4, 3.4, spin && (!p1.round || r.chance(0.5)));
+    B.build({ x: x1, z: 0, top: t1, w: w1, d: 3, maxH: maxHFor(t1) }, tpl(), p1);
+    B.build({ x: x2, z: z2, top: t2, w: w2, d: 3, maxH: maxHFor(t2) }, tpl(), p2);
   } else if (layout === 'bridge') {
     const four = r.chance(0.35);
     const sp = r.range(1.9, 2.6);
@@ -610,8 +613,8 @@ export function generate(n, variant) {
       const x = -total / 2 + w / 2 + i * (w + gap);
       const z = k === 3 && i === 1 ? r.range(-1.5, 0) : 0;
       const top = tops[i] + r.range(-0.2, 0.2);
-      const p = B.pedestal(x, z, top, w + 0.4, 2.4, spin && i === 1);
-      B.build({ x, z, top, w, d: 2, maxH: Math.min(maxHFor(top), 3 + d * 3) }, tpl(['jenga', 'castle']), p);
+      const p = B.pedestal(x, z, top, w + 0.4, 3.4, spin && i === 1);
+      B.build({ x, z, top, w, d: 3, maxH: Math.min(maxHFor(top), 3 + d * 3) }, tpl(['jenga', 'castle']), p);
     }
   } else { // scattered, layered in depth
     const k = r.int(3, 5);
@@ -751,6 +754,54 @@ export function generate(n, variant) {
     if (gens.length) B.shields.push({ x: cx, y: cy, z: cz, r: rad, gens });
   }
 
+  /* ---- back rank: raised structures stacked behind the front, peeking over it ---- */
+  if (n > 3) {
+    let fz0 = Infinity, fx0 = Infinity, fx1 = -Infinity;
+    for (const b of B.blocks) {
+      const m = Math.max(b.w, b.d) / 2;
+      fz0 = Math.min(fz0, b.z - m); fx0 = Math.min(fx0, b.x - m); fx1 = Math.max(fx1, b.x + m);
+    }
+    for (const p of B.pedestals) {
+      fz0 = Math.min(fz0, p.z - p.d / 2); fx0 = Math.min(fx0, p.x - p.w / 2); fx1 = Math.max(fx1, p.x + p.w / 2);
+    }
+    // stay clear of orbit rings and shield bubbles
+    for (const o of B.orbits) {
+      let rr = 0; for (const it of o.items) rr = Math.max(rr, it.r + Math.max(it.w, it.d) * 0.7);
+      fz0 = Math.min(fz0, o.horizontal ? o.cz - rr - 0.3 : o.cz - 1.2);
+    }
+    for (const q of B.shields) fz0 = Math.min(fz0, q.z - q.r);
+    // no wider than the front, so the camera does not have to pull back (portrait screens)
+    const span = clamp(fx1 - fx0, 4.4, SIDE * 2 - 1), x0 = clamp((fx0 + fx1) / 2 - span / 2, -SIDE + 0.5, SIDE - 0.5 - span);
+    const cnt = span > 7 ? r.int(2, 3) : span > 5.5 ? r.int(1, 2) : 1;
+    const slot = span / cnt;
+    const w = clamp(Math.floor(slot - 0.5), 1, 4), dd = 2;
+    const z = fz0 - r.range(0.6, 1) - dd / 2;
+    const orbitN = B.orbits.reduce((a, o) => a + o.items.length, 0);
+    const placed = [];
+    for (let i = 0; i < cnt; i++) {
+      const room = MAX_BLOCKS - B.blocks.length - orbitN;
+      if (room < 8) break;
+      const x = x0 + slot * (i + 0.5) + r.range(-0.2, 0.2);
+      const top = r.range(0.9, 2.2);
+      // (jenga and tTower ignore the site width, so they would spill into the next slot)
+      const tn = tpl(['cards', 'dominoBridge', 'spire', 'jenga', 'tTower']);
+      // shrink the site until the structure fits the per-stage block cap (phones)
+      let site = null, got = null;
+      for (let k = 0; k < 4 && !got; k++) {
+        site = { x, z, top, w: Math.max(1, w - (k >> 1)), d: Math.max(1, dd - (k & 1)), maxH: Math.max(2 * U, maxHFor(top) + 0.6 - k * 1.5) };
+        const out = T[tn](site, r, d);
+        if (out.length && out.length <= room) got = out;
+      }
+      if (!got) continue;
+      // the pedestal is refitted to the footprint, so check the footprint against the neighbours
+      const bb = bounds(got);
+      if (placed.some((q) => bb.x0 - 0.6 < q.x1 && bb.x1 + 0.6 > q.x0)) continue;
+      placed.push(bb);
+      const p = B.pedestal(x, z, top, site.w + 0.4, site.d + 0.4, false);
+      B.build(site, tn, p, got);
+    }
+  }
+
   /* ---- type conversions ---- */
   const structural = B.blocks.filter((b) => b.type === 'normal' && !b.kin && b.site !== undefined);
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r.f() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -843,7 +894,7 @@ export function cameraFor(st, aspect) {
 }
 
 /* ------------------------------------------------------------ Simulation */
-export const SIM_OPTS = { iter: 24, friction: 0.42, blastK: 2, pierce: 16, pierceDepth: 3.5, column: 2 };
+export const SIM_OPTS = { iter: 24, friction: 0.42, blastK: 2, pierce: 16, pierceDepth: 3.5, column: 1 };
 const DENS = { normal: 1, star: 1, bomb: 1.1, armor: 2.4, steel: 3.5, crystal: 0.8, phase: 1, gen: 1, core: 3 };
 const V = (x, y, z) => new CANNON.Vec3(x, y, z);
 
